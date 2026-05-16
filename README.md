@@ -3,8 +3,8 @@
 [Relayer](https://github.com/polidog/relayer) のドキュメントサイト。
 Relayer 自身で作られた（ドッグフーディング）ドキュメントビューア + 全文検索です。
 
-- **本文**: `docs/*.md`（フロントマター付き Markdown）をローカルで管理
-- **更新**: CLI `bin/docs` で [Turso](https://turso.tech)（libSQL）へ同期
+- **本文**: [Turso](https://turso.tech)（libSQL）を**唯一の正**として保持（中間ファイル無し）
+- **編集**: CLI `bin/docs`（`$EDITOR`）で Turso を直接読み書き
 - **表示/検索**: Relayer（PHP）が表示と SQLite FTS5（trigram）全文検索を担当
 - **UI**: Tailwind（Play CDN, ビルド不要）+ ダークモード
 
@@ -15,26 +15,30 @@ Relayer 自身で作られた（ドッグフーディング）ドキュメント
 
 ```bash
 composer install
-mise exec -- php bin/docs migrate   # スキーマ作成
-mise exec -- php bin/docs sync      # docs/*.md を取り込み
+mise exec -- php bin/docs migrate          # スキーマ作成
+mise exec -- php bin/docs new my-first-page # 記事を書く（$EDITOR）
 APP_ENV=dev php -S 127.0.0.1:8000 -t public
 ```
 
 PHP 8.5 以上が必要です（このリポジトリは `mise.toml` で 8.5 を固定）。
 ブラウザで <http://127.0.0.1:8000> を開きます。
 
-## CLI
+## CLI（記事はストアが唯一の正・ソースファイル無し）
 
 ```bash
-bin/docs migrate            スキーマ作成（冪等）
-bin/docs status             同期前の差分プレビュー
-bin/docs sync [--prune]     変更分を upsert（--prune で削除も反映）
-bin/docs list               ストア内の一覧
+bin/docs migrate               スキーマ作成（冪等）
+bin/docs list                  記事一覧
+bin/docs new  <slug>           新規作成（$EDITOR が開く）
+bin/docs edit <slug>           既存を編集（$EDITOR が開く）
+bin/docs show <slug>           保存内容を表示
+bin/docs rm   <slug> [--force] 削除
+bin/docs export <dir>          全記事を .md で書き出し（バックアップ/移行）
+bin/docs import <file.md>...   .md を取り込み（移行用）
 ```
 
-## ドキュメントの書き方
-
-`docs/<slug>.md`（slug は小文字・数字・ハイフン）:
+`new` / `edit` はフロントマター + Markdown 本文の編集バッファを `$EDITOR`
+で開き、保存時に Turso へ upsert します（非対話は `--file <path>`、`-` で
+stdin）。バッファ形式:
 
 ```markdown
 ---
@@ -47,14 +51,13 @@ order: 10
 # 本文（Markdown）
 ```
 
-編集 → `bin/docs sync` で反映。本文ハッシュで変更検知し、変わった
-ページだけ送信します。
+`slug` はコマンド引数。`docs/*.md` のような中間ソースは持たず、Turso が
+一元的なソースです。バックアップ/移行は `export` / `import` を使います。
 
 ## 構成
 
 ```
-docs/                     ソースの Markdown（13 本）
-bin/docs                  同期 CLI（PHP）
+bin/docs                  記事編集 CLI（PHP, $EDITOR で Turso を直接編集）
 src/Docs/                 ストア層 + Markdown→Element レンダラ
   DocStore.php            FTS5 含む SQL（Pdo / Turso 共通）
   PdoConnection.php       ローカル SQLite
@@ -92,6 +95,6 @@ gcloud run deploy relayer-doc --source . --region asia-northeast1 \
 `GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_SERVICE_ACCOUNT`（任意変数
 `GCP_REGION`）。GCP 側の一回限りの準備はワークフロー先頭コメント参照。
 
-ドキュメント更新は CI ではなく**ローカル CLI**から: `bin/docs sync --prune`
-（サーバーは Turso を読むだけ）。詳細はサイト内
+記事の更新は CI ではなく**ローカル CLI**から Turso を直接編集:
+`bin/docs edit <slug>`（サーバーは Turso を読むだけ）。詳細はサイト内
 「[デプロイ](http://127.0.0.1:8000/docs/deployment)」を参照。

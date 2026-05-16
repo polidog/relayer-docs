@@ -4,15 +4,23 @@
 declare(strict_types=1);
 
 /**
- * relayer-doc CLI — sync local Markdown into the doc store.
+ * relayer-doc CLI — edit articles directly in the store (Turso, or a
+ * local SQLite file in development). The store is the single source of
+ * truth; there are no Markdown source files.
  *
  * Usage:
- *   bin/docs migrate            create the schema (idempotent)
- *   bin/docs status             show what a sync would change
- *   bin/docs sync [--prune]     upsert changed pages (--prune deletes removed)
- *   bin/docs list               list pages currently in the store
+ *   bin/docs migrate                 create the schema (idempotent)
+ *   bin/docs list                    list articles
+ *   bin/docs new  <slug>             create (opens $EDITOR)
+ *   bin/docs edit <slug>             edit existing (opens $EDITOR)
+ *   bin/docs show <slug>             print the stored article
+ *   bin/docs rm   <slug> [--force]   delete
+ *   bin/docs export <dir>            write every article as <slug>.md
+ *   bin/docs import <file.md>...     upsert from front-matter Markdown
  *
- * Backend is chosen from the environment (see DocStoreFactory):
+ * new/edit accept `--file <path>` (`-` = stdin) for non-interactive use.
+ *
+ * Backend (App\Docs\DocStoreFactory):
  *   TURSO_DATABASE_URL set  -> Turso (remote)   otherwise -> var/docs.db
  */
 
@@ -25,96 +33,149 @@ $root = \dirname(__DIR__);
 
 require_once $root . '/vendor/autoload.php';
 
-// Load .env (+ .env.local cascade) so the CLI sees the same config as
-// the web app — including TURSO_* credentials.
 if (\is_file($root . '/.env')) {
     (new Dotenv())->loadEnv($root . '/.env');
 }
 
 $argv = $_SERVER['argv'] ?? [];
 $command = $argv[1] ?? 'help';
-$flags = \array_slice($argv, 2);
-$prune = \in_array('--prune', $flags, true);
+$rest = \array_slice($argv, 2);
 
-$docsDir = $root . '/docs';
+/** Pull `--flag` / `--flag=value` out of the argument list. */
+$takeOpt = static function (array &$args, string $name): ?string {
+    foreach ($args as $i => $arg) {
+        if ($arg === '--' . $name) {
+            $val = $args[$i + 1] ?? '';
+            unset($args[$i], $args[$i + 1]);
+            $args = \array_values($args);
+
+            return $val;
+        }
+        if (\str_starts_with($arg, '--' . $name . '=')) {
+            $val = \substr($arg, \strlen($name) + 3);
+            unset($args[$i]);
+            $args = \array_values($args);
+
+            return $val;
+        }
+    }
+
+    return null;
+};
+$hasFlag = static function (array &$args, string $name): bool {
+    foreach ($args as $i => $arg) {
+        if ($arg === '--' . $name) {
+            unset($args[$i]);
+            $args = \array_values($args);
+
+            return true;
+        }
+    }
+
+    return false;
+};
+
 $store = DocStoreFactory::create($root);
 $target = DocStoreFactory::isRemote() ? 'Turso (remote)' : 'var/docs.db (local)';
 
-/**
- * Read every docs/*.md, parse front matter, return DocRecords keyed by slug.
- *
- * @return array<string, DocRecord>
- */
-$readLocal = static function (string $docsDir): array {
-    if (!\is_dir($docsDir)) {
-        \fwrite(\STDERR, "docs/ directory not found: {$docsDir}\n");
+$fail = static function (string $msg): never {
+    \fwrite(\STDERR, $msg . "\n");
 
-        return [];
+    exit(1);
+};
+
+$assertSlug = static function (string $slug) use ($fail): void {
+    if (!\preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
+        $fail("invalid slug '{$slug}' (use lower-case letters, digits, hyphen)");
+    }
+};
+
+/** DocRecord -> editable buffer (front matter + body). */
+$serialize = static function (DocRecord $d): string {
+    $fm = Yaml::dump([
+        'title' => $d->title,
+        'description' => $d->description,
+        'category' => $d->category,
+        'order' => $d->position,
+    ], 2, 2);
+
+    return "---\n" . $fm . "---\n\n" . \rtrim($d->content) . "\n";
+};
+
+/** Editable buffer + slug -> DocRecord (computes hash + timestamp). */
+$deserialize = static function (string $buffer, string $slug) use ($fail): DocRecord {
+    if (\preg_match('/^\xEF\xBB\xBF/', $buffer)) {
+        $buffer = \substr($buffer, 3);
+    }
+    $meta = [];
+    $body = $buffer;
+    if (\preg_match('/^---\R(.*?)\R---\R?(.*)$/s', $buffer, $m)) {
+        $parsed = Yaml::parse($m[1]);
+        $meta = \is_array($parsed) ? $parsed : [];
+        $body = $m[2];
     }
 
-    $records = [];
-    $files = \glob($docsDir . '/*.md') ?: [];
-    \sort($files);
-
-    foreach ($files as $file) {
-        $slug = \basename($file, '.md');
-        if (!\preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
-            \fwrite(\STDERR, "skip: invalid slug '{$slug}' (use lower-case, digits, hyphen)\n");
-
-            continue;
-        }
-
-        $raw = (string) \file_get_contents($file);
-        [$meta, $body] = parseFrontMatter($raw);
-
-        $title = (string) ($meta['title'] ?? '');
-        if ('' === $title && \preg_match('/^\#\s+(.+)$/m', $body, $m)) {
-            $title = \trim($m[1]);
-        }
-        if ('' === $title) {
-            $title = $slug;
-        }
-
-        $description = (string) ($meta['description'] ?? '');
-        $category = (string) ($meta['category'] ?? '');
-        $position = (int) ($meta['order'] ?? $meta['position'] ?? 0);
-        $body = \trim($body) . "\n";
-
-        $records[$slug] = new DocRecord(
-            slug: $slug,
-            title: $title,
-            description: $description,
-            category: $category,
-            position: $position,
-            content: $body,
-            hash: DocRecord::hashOf($title, $description, $category, $position, $body),
-            updatedAt: \gmdate('c'),
-        );
+    $title = \trim((string) ($meta['title'] ?? ''));
+    if ('' === $title && \preg_match('/^\#\s+(.+)$/m', $body, $h)) {
+        $title = \trim($h[1]);
+    }
+    if ('' === $title) {
+        $fail('title is required (front matter `title:` or a leading `# heading`)');
     }
 
-    return $records;
+    $description = (string) ($meta['description'] ?? '');
+    $category = (string) ($meta['category'] ?? '');
+    $position = (int) ($meta['order'] ?? $meta['position'] ?? 0);
+    $body = \trim($body) . "\n";
+
+    return new DocRecord(
+        slug: $slug,
+        title: $title,
+        description: $description,
+        category: $category,
+        position: $position,
+        content: $body,
+        hash: DocRecord::hashOf($title, $description, $category, $position, $body),
+        updatedAt: \gmdate('c'),
+    );
 };
 
 /**
- * Split `--- yaml --- body` front matter. Returns [meta, body].
- *
- * @return array{0: array<string, mixed>, 1: string}
+ * Open $EDITOR on $seed and return the edited text. Falls back to
+ * --file/stdin when not attached to a terminal.
  */
-function parseFrontMatter(string $raw): array
-{
-    if (\preg_match('/^\xEF\xBB\xBF/', $raw)) {
-        $raw = \substr($raw, 3); // strip UTF-8 BOM
+$editBuffer = static function (string $seed, ?string $fileOpt) use ($fail): string {
+    if (null !== $fileOpt) {
+        $data = '-' === $fileOpt ? \stream_get_contents(\STDIN) : @\file_get_contents($fileOpt);
+        if (!\is_string($data)) {
+            $fail("cannot read --file '{$fileOpt}'");
+        }
+
+        return $data;
     }
-    if (\preg_match('/^---\R(.*?)\R---\R?(.*)$/s', $raw, $m)) {
-        $meta = Yaml::parse($m[1]) ?? [];
 
-        return [\is_array($meta) ? $meta : [], $m[2]];
+    if (!\stream_isatty(\STDIN)) {
+        $fail('no terminal for $EDITOR — pass --file <path> (or - for stdin)');
     }
 
-    return [[], $raw];
-}
+    $tmp = \tempnam(\sys_get_temp_dir(), 'relayer-doc-') . '.md';
+    \file_put_contents($tmp, $seed);
 
-$pad = static fn (string $s, int $w): string => $s . \str_repeat(' ', \max(0, $w - \mb_strwidth($s)));
+    $editor = \getenv('EDITOR') ?: (\getenv('VISUAL') ?: 'vi');
+    $cmd = $editor . ' ' . \escapeshellarg($tmp);
+    $tty = [['file', '/dev/tty', 'r'], ['file', '/dev/tty', 'w'], ['file', '/dev/tty', 'w']];
+    $proc = \proc_open($cmd, $tty, $pipes);
+    if (!\is_resource($proc)) {
+        @\unlink($tmp);
+        $fail("failed to launch editor: {$editor}");
+    }
+    \proc_close($proc);
+
+    $edited = (string) \file_get_contents($tmp);
+    @\unlink($tmp);
+
+    return $edited;
+};
 
 switch ($command) {
     case 'migrate':
@@ -127,84 +188,130 @@ switch ($command) {
         $store->migrate();
         $rows = $store->nav();
         if ([] === $rows) {
-            echo "no documents in store ({$target}). Run: bin/docs sync\n";
+            echo "no articles in {$target}. Create one: bin/docs new <slug>\n";
 
             break;
         }
-        echo "documents in {$target}:\n";
-        foreach ($rows as $doc) {
-            echo '  ' . $pad($doc->slug, 22) . $pad($doc->category, 14) . $doc->title . "\n";
+        echo "articles in {$target}:\n";
+        foreach ($rows as $d) {
+            \printf("  %-22s %-14s %s\n", $d->slug, $d->category, $d->title);
         }
         echo \count($rows) . " total\n";
 
         break;
 
-    case 'status':
-    case 'sync':
+    case 'show':
         $store->migrate();
-        $local = $readLocal($docsDir);
-        $remote = $store->hashes();
+        $slug = $rest[0] ?? $fail('usage: bin/docs show <slug>');
+        $doc = $store->get($slug) ?? $fail("not found: {$slug}");
+        echo $serialize($doc);
 
-        $new = $changed = $same = [];
-        foreach ($local as $slug => $rec) {
-            if (!isset($remote[$slug])) {
-                $new[] = $slug;
-            } elseif ($remote[$slug] !== $rec->hash) {
-                $changed[] = $slug;
-            } else {
-                $same[] = $slug;
+        break;
+
+    case 'new':
+    case 'edit':
+        $store->migrate();
+        $fileOpt = $takeOpt($rest, 'file');
+        $slug = $rest[0] ?? $fail("usage: bin/docs {$command} <slug> [--file <path>|-]");
+        $assertSlug($slug);
+        $existing = $store->get($slug);
+
+        if ('new' === $command && null !== $existing) {
+            $fail("already exists: {$slug} (use `bin/docs edit {$slug}`)");
+        }
+        if ('edit' === $command && null === $existing) {
+            $fail("not found: {$slug} (use `bin/docs new {$slug}`)");
+        }
+
+        $seed = null !== $existing
+            ? $serialize($existing)
+            : "---\ntitle: ''\ndescription: ''\ncategory: ''\norder: 0\n---\n\n# " . $slug . "\n";
+
+        $doc = $deserialize($editBuffer($seed, $fileOpt), $slug);
+        $store->upsert($doc);
+        echo ('new' === $command ? 'created' : 'updated') . ": {$slug} -> {$target}\n";
+
+        break;
+
+    case 'rm':
+        $store->migrate();
+        $force = $hasFlag($rest, 'force');
+        $slug = $rest[0] ?? $fail('usage: bin/docs rm <slug> [--force]');
+        if (null === $store->get($slug)) {
+            $fail("not found: {$slug}");
+        }
+        if (!$force) {
+            if (!\stream_isatty(\STDIN)) {
+                $fail("refusing to delete '{$slug}' non-interactively — pass --force");
+            }
+            \fwrite(\STDOUT, "delete '{$slug}' from {$target}? [y/N] ");
+            $ans = \trim((string) \fgets(\STDIN));
+            if (!\in_array(\strtolower($ans), ['y', 'yes'], true)) {
+                echo "aborted\n";
+
+                break;
             }
         }
-        $removed = \array_values(\array_diff(\array_keys($remote), \array_keys($local)));
+        $store->delete($slug);
+        echo "deleted: {$slug}\n";
 
-        echo "target: {$target}\n";
-        echo \sprintf(
-            "  new: %d  changed: %d  unchanged: %d  removed-locally: %d\n",
-            \count($new), \count($changed), \count($same), \count($removed),
-        );
-        foreach ($new as $s) {
-            echo "  + {$s}\n";
-        }
-        foreach ($changed as $s) {
-            echo "  ~ {$s}\n";
-        }
-        foreach ($removed as $s) {
-            echo '  - ' . $s . ($prune || 'sync' !== $command ? '' : ' (use --prune to delete)') . "\n";
-        }
+        break;
 
-        if ('status' === $command) {
-            break;
+    case 'export':
+        $store->migrate();
+        $dir = $rest[0] ?? $fail('usage: bin/docs export <dir>');
+        if (!\is_dir($dir) && !\mkdir($dir, 0o775, true) && !\is_dir($dir)) {
+            $fail("cannot create directory: {$dir}");
         }
+        $n = 0;
+        foreach ($store->nav() as $meta) {
+            $doc = $store->get($meta->slug);
+            if (null === $doc) {
+                continue;
+            }
+            \file_put_contents(\rtrim($dir, '/') . '/' . $doc->slug . '.md', $serialize($doc));
+            ++$n;
+        }
+        echo "exported {$n} article(s) -> {$dir}\n";
 
-        foreach ($new as $s) {
-            $store->upsert($local[$s]);
-        }
-        foreach ($changed as $s) {
-            $store->upsert($local[$s]);
-        }
-        $deleted = [];
-        if ($prune) {
-            $deleted = $store->prune(\array_keys($local));
-        }
+        break;
 
-        echo \sprintf(
-            "synced: %d upserted, %d deleted\n",
-            \count($new) + \count($changed),
-            \count($deleted),
-        );
+    case 'import':
+        $store->migrate();
+        if ([] === $rest) {
+            $fail('usage: bin/docs import <file.md> [<file.md>...]');
+        }
+        $n = 0;
+        foreach ($rest as $path) {
+            $raw = @\file_get_contents($path);
+            if (!\is_string($raw)) {
+                $fail("cannot read: {$path}");
+            }
+            $slug = \basename($path, '.md');
+            $assertSlug($slug);
+            $store->upsert($deserialize($raw, $slug));
+            ++$n;
+            echo "  imported {$slug}\n";
+        }
+        echo "imported {$n} file(s) -> {$target}\n";
 
         break;
 
     case 'help':
     default:
         echo <<<TXT
-            relayer-doc CLI
+            relayer-doc CLI — articles live in the store (no source files)
 
-              bin/docs migrate           create the schema (idempotent)
-              bin/docs status            preview changes vs the store
-              bin/docs sync [--prune]    upsert changed pages
-              bin/docs list              list pages in the store
+              bin/docs migrate               create the schema (idempotent)
+              bin/docs list                  list articles
+              bin/docs new  <slug>           create (opens \$EDITOR)
+              bin/docs edit <slug>           edit existing (opens \$EDITOR)
+              bin/docs show <slug>           print the stored article
+              bin/docs rm   <slug> [--force] delete
+              bin/docs export <dir>          back up every article as <slug>.md
+              bin/docs import <file.md>...   upsert from front-matter Markdown
 
+            new/edit: --file <path> (or - for stdin) for non-interactive use.
             backend: {$target}
               set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN for the remote store.
 
