@@ -46,19 +46,26 @@ $tailwind = <<<'HTML'
 </script>
 HTML;
 
-// Syntax highlighting via highlight.js (Play CDN, no build step). The
-// Markdown renderer already emits `<pre><code class="language-xxx">`,
-// which highlight.js targets directly. Code blocks are always dark
-// (the doc page forces `prose-pre:bg-slate-900`), so a single dark
-// theme is used and `.hljs` is made transparent so the existing `pre`
-// keeps providing the background/padding — only token colors come from
-// the theme. `dotenv`/`env` fences are aliased to `ini` (KEY=value).
+// Syntax highlighting theme + init for highlight.js. The library itself
+// (`highlight.min.js`) is NOT loaded here: only the doc page has
+// `<pre><code>` blocks, so it declares the lib per-page via
+// `$ctx->js()` (relayer 0.6.0+), emitted at end of <body> on doc pages
+// only instead of globally on every route.
+//
+// What stays global (head): the theme CSS + a one-line `.hljs` override
+// + the init script. `$ctx->js()` is src-only by design, so the inline
+// init lives here; it's guarded by `if (!window.hljs)` so it's an inert
+// no-op on routes that never load the library (home, search, 404). The
+// Markdown renderer emits `<pre><code class="language-xxx">`, which
+// highlight.js targets directly. Code blocks are always dark (the doc
+// page forces `prose-pre:bg-slate-900`), so a single dark theme is used
+// and `.hljs` is made transparent so the existing `pre` keeps providing
+// the background/padding. `dotenv`/`env` fences alias to `ini`.
 $highlight = <<<'HTML'
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css">
 <style>
   .prose pre code.hljs { background: transparent; padding: 0; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
 <script>
   (function () {
     function run() {

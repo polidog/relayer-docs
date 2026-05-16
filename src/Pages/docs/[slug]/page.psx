@@ -47,6 +47,12 @@ return function (PageContext $ctx, DocStore $store): Closure {
         'description' => $doc->description,
     ]);
 
+    // Syntax highlighting: load highlight.js only here (the sole route
+    // with `<pre><code>` blocks), not globally. Emitted at end of <body>
+    // with defer; the head-side init (index.php) runs it. The 404 branch
+    // above intentionally skips this — no code blocks there.
+    $ctx->js('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js', defer: true);
+
     // Content-addressed revalidation: no max-age (content is edited
     // out-of-band via `bin/docs`, so edits must show immediately), but
     // the ETag is the page's own content hash — an unchanged page
