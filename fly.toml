@@ -1,0 +1,38 @@
+# Fly.io deployment for the Relayer docs site.
+#
+# The Dockerfile runs FrankenPHP (single process) serving plain HTTP
+# on :8080 — see docker/Caddyfile — so internal_port below just has to
+# match. The app does zero filesystem writes at runtime (Turso over
+# HTTP, literal-ETag cache, NullProfiler), so the default rootfs is
+# fine — nothing needs a volume.
+#
+# Docs content is NOT deployed here — it is written to Turso directly
+# from a local machine with `bin/docs sync --prune`. This service only
+# reads Turso. Credentials are Fly secrets, not in this file:
+#   fly secrets set TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=...
+#
+# One-time setup and CI details: see .github/workflows/deploy.yml and
+# the "本番デプロイ" section in README.md.
+
+app = "relayer-doc"
+primary_region = "nrt"   # Tokyo — was asia-northeast1 on Cloud Run
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_ENV = "production"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Scale to zero like Cloud Run --min-instances 0: stop idle machines,
+  # cold-start on the next request.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"   # ~1 shared vCPU, matches Cloud Run --cpu 1
+  memory = "512mb"         # matches Cloud Run --memory 512Mi

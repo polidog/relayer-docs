@@ -71,29 +71,36 @@ public/index.php          エントリ（Tailwind CDN + dark mode を注入）
 
 詳細・デプロイ手順はサイト内の「[デプロイ](http://127.0.0.1:8000/docs/deployment)」を参照。
 
-## 本番デプロイ（Cloud Run / nginx + php-fpm）
+## 本番デプロイ（Fly.io / FrankenPHP）
 
-`Dockerfile`（`php:8.5-fpm` + nginx）で Cloud Run にデプロイします。ビルド時に
-PSX を 2 か所へ事前コンパイル（コンポーネント→`var/cache/psx`、ページ→
-`src/var/cache/psx`）、実行時はファイル書き込みゼロ＝読み取り専用 FS でも動作。
+`Dockerfile`（`dunglas/frankenphp:php8.5`）を `fly.toml` でそのままビルドして
+Fly.io にデプロイします。FrankenPHP（Caddy + 埋め込み PHP）が単一プロセスで
+HTTP を直接処理＝nginx/php-fpm 不要。worker は使わず classic mode（php-fpm
+ドロップイン）。ビルド時に PSX を 2 か所へ事前コンパイル（コンポーネント→
+`var/cache/psx`、ページ→`src/var/cache/psx`）、実行時はファイル書き込みゼロ。
+リージョンは `nrt`（東京）、アイドル時はマシン停止＝ゼロスケール。
+
+一回限りの準備（`fly` 未インストールなら `curl -L https://fly.io/install.sh | sh`）:
 
 ```bash
-gcloud run deploy relayer-doc --source . --region asia-northeast1 \
-  --allow-unauthenticated --min-instances 0 \
-  --set-env-vars APP_ENV=production \
-  --set-secrets 'TURSO_DATABASE_URL=turso-url:latest,TURSO_AUTH_TOKEN=turso-token:latest'
+fly auth login
+fly apps create relayer-doc          # 名前が埋まっていたら fly.toml の app= を変更
+fly secrets set \
+  "TURSO_DATABASE_URL=$(grep '^TURSO_DATABASE_URL=' .env.local | cut -d= -f2-)" \
+  "TURSO_AUTH_TOKEN=$(grep '^TURSO_AUTH_TOKEN=' .env.local | cut -d= -f2-)" \
+  --app relayer-doc
+fly deploy                           # 初回はローカルから動作確認
 ```
 
 ローカル確認: `docker build -t relayer-doc . && docker run -p 8080:8080 \
- -e PORT=8080 -e TURSO_DATABASE_URL=... -e TURSO_AUTH_TOKEN=... relayer-doc`
+ -e TURSO_DATABASE_URL=... -e TURSO_AUTH_TOKEN=... relayer-doc`
 
 ### CI/CD（GitHub Actions）
 
-`.github/workflows/deploy.yml` が `main` push / 手動実行で
-**アプリのデプロイのみ**（WIF キーレス認証 → `gcloud run deploy --source .`）
-を実行します。必要な GitHub Secrets: `GCP_PROJECT_ID` /
-`GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_SERVICE_ACCOUNT`（任意変数
-`GCP_REGION`）。GCP 側の一回限りの準備はワークフロー先頭コメント参照。
+`.github/workflows/deploy.yml` が `main` push / 手動実行で `flyctl deploy
+--remote-only`（Fly のリモートビルダーで Dockerfile をビルド）を実行します。
+必要な GitHub Secret は `FLY_API_TOKEN` のみ:
+`fly tokens create deploy --app relayer-doc` で発行してリポジトリ Secret に登録。
 
 記事の更新は CI ではなく**ローカル CLI**から Turso を直接編集:
 `bin/docs edit <slug>`（サーバーは Turso を読むだけ）。詳細はサイト内

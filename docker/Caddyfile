@@ -1,0 +1,43 @@
+# FrankenPHP (Caddy) config for the Relayer docs site on Fly.io.
+#
+# fly-proxy terminates TLS at the edge and speaks plain HTTP to the
+# machine, so the site address is a bare :8080 (HTTP only, no Caddy
+# automatic HTTPS) and must match fly.toml's internal_port.
+{
+	# Override-able for debugging: -e CADDY_GLOBAL_OPTIONS="debug".
+	{$CADDY_GLOBAL_OPTIONS}
+
+	# fly-proxy handles HTTPS; never let Caddy try to provision certs.
+	auto_https off
+
+	frankenphp
+}
+
+:8080 {
+	log {
+		# Fly captures stdout/stderr as logs.
+		output stderr
+		format console
+	}
+
+	root /var/www/html/public
+	encode zstd br gzip
+
+	# Don't serve dotfiles, except ACME challenges. Caddy uses Go's
+	# RE2 engine (no PCRE lookahead), so the .well-known carve-out is
+	# an explicit `not path` rather than a negative-lookahead regexp.
+	@hidden {
+		path_regexp /\.
+		not path /.well-known/*
+	}
+	respond @hidden 403
+
+	# Front controller: serve real files (e.g. /usephp.js), route
+	# everything else to Relayer's single entrypoint (index.php).
+	# No `worker` directive → classic mode: one script execution per
+	# request, no state shared between requests, so PSX/Relayer needs
+	# no worker-mode adaptation (drop-in for php-fpm).
+	php_server {
+		try_files {path} index.php
+	}
+}
