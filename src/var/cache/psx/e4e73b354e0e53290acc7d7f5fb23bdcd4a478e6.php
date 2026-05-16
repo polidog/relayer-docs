@@ -47,14 +47,13 @@ H::a(href: '/', className: 'inline-block px-5 py-2.5 rounded-lg font-semibold bg
         'description' => $doc->description,
     ]);
 
-    // Content-addressed cache: the ETag is the page's own content
-    // hash, so a `bin/docs sync` that changes this page busts the
-    // cache, while an untouched page revalidates as 304 and skips the
-    // (heavy) Markdown render below entirely.
+    // Content-addressed revalidation: no max-age (content is edited
+    // out-of-band via `bin/docs`, so edits must show immediately), but
+    // the ETag is the page's own content hash — an unchanged page
+    // revalidates as 304 and skips the (heavy) Markdown render below.
     $ctx->cache(new Cache(
-        maxAge: 300,
         public: true,
-        mustRevalidate: true,
+        noCache: true,
         etag: 'doc-' . $doc->hash,
     ));
 

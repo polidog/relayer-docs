@@ -21,12 +21,12 @@ return [
         $limit = (int) ($req->query('limit') ?? 20);
 
         // Same content-addressed strategy as the pages: ETag binds the
-        // query + corpus digest. On a conditional hit, short-circuit
-        // with 304 before running the search (mirrors the framework's
-        // own function-page cache path).
+        // query + corpus digest, no-cache so clients always revalidate.
+        // On a conditional hit, short-circuit with 304 before running
+        // the search (mirrors the framework's function-page cache path).
         $cache = new Cache(
-            maxAge: 60,
             public: true,
+            noCache: true,
             etag: 'api-' . \sha1($query . '|' . $store->corpusTag()),
         );
         CachePolicy::emit($cache);

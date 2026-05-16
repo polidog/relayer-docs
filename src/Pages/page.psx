@@ -26,12 +26,12 @@ return function (PageContext $ctx, DocStore $store): Closure {
         'description' => 'Relayer — Next.js App Router 風の PHP フルスタックフレームワークのドキュメント。',
     ]);
 
-    // The index reflects the whole corpus, so its ETag is the
-    // corpus digest — unchanged between syncs => 304.
+    // The index reflects the whole corpus, so its ETag is the corpus
+    // digest. no-cache => always revalidate (edits show immediately),
+    // 304 when nothing changed.
     $ctx->cache(new Cache(
-        maxAge: 120,
         public: true,
-        mustRevalidate: true,
+        noCache: true,
         etag: 'home-' . $store->corpusTag(),
     ));
 

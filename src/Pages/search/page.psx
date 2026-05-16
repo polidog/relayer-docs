@@ -28,12 +28,12 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     ]);
 
     // Results depend on the query AND the corpus, so the ETag binds
-    // both. Same query against an unchanged corpus => 304, and the
-    // search itself (in the render closure) is then never run.
+    // both. no-cache => always revalidate; same query against an
+    // unchanged corpus => 304, and the search (in the render closure)
+    // is then never run.
     $ctx->cache(new Cache(
-        maxAge: 60,
         public: true,
-        mustRevalidate: true,
+        noCache: true,
         etag: 'search-' . \sha1($query . '|' . $store->corpusTag()),
     ));
 
