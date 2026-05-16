@@ -31,7 +31,7 @@ return function (array $props) {
 
     return (
         <div className={$grid}>
-            <aside className="md:sticky md:top-20 self-start">
+            <aside id="sidebar" className="hidden md:block md:sticky md:top-20 self-start">
                 <SearchForm />
                 <nav>
                     {array_map(fn (array $g) => (

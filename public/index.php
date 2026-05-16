@@ -80,12 +80,38 @@ $highlight = <<<'HTML'
 </script>
 HTML;
 
+// Mobile nav: the sidebar is `hidden md:block`, so the hamburger
+// (#nav-toggle, md:hidden) toggles the `hidden` class on #sidebar.
+// Tapping a sidebar link closes it again on phones. Delegated so it
+// works regardless of component render order (same pattern as the
+// theme toggle).
+$nav = <<<'HTML'
+<script>
+  (function () {
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest) return;
+      if (e.target.closest('#nav-toggle')) {
+        var s = document.getElementById('sidebar');
+        if (s) s.classList.toggle('hidden');
+        return;
+      }
+      if (e.target.closest('#sidebar a') &&
+          window.matchMedia('(max-width: 767px)').matches) {
+        var sb = document.getElementById('sidebar');
+        if (sb) sb.classList.add('hidden');
+      }
+    });
+  })();
+</script>
+HTML;
+
 $document = HtmlDocument::create()
     ->setLang('ja')
     ->setTitle('Relayer ドキュメント')
     ->disableDefaultStyles()
     ->addHeadHtml($tailwind)
-    ->addHeadHtml($highlight);
+    ->addHeadHtml($highlight)
+    ->addHeadHtml($nav);
 
 // dirname() (not __DIR__ . '/..') so the project root is a clean
 // absolute path. The PSX page/component caches are keyed off it; a
