@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Components;
+
+use Polidog\UsePhp\Html\H;
+
+/**
+ * Search box. `query` pre-fills the field; `large` switches to the
+ * hero/results size. Plain GET form -> /search (works without JS).
+ * Tailwind, dark-mode aware.
+ */
+return fn (array $props) => (
+    <form
+        action="/search"
+        method="get"
+        className={($props['large'] ?? false) ? 'flex gap-1.5 mb-4 max-w-lg mx-auto' : 'flex gap-1.5 mb-4'}
+    >
+        <input
+            type="search"
+            name="q"
+            value={$props['query'] ?? null}
+            placeholder="ドキュメントを検索…"
+            autocomplete="off"
+            className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <button
+            type="submit"
+            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm whitespace-nowrap"
+        >検索</button>
+    </form>
+);

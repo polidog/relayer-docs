@@ -1,0 +1,82 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Components\SearchForm;
+use App\Components\Shell;
+use App\Docs\DocStore;
+use Polidog\Relayer\Http\Cache;
+use Polidog\Relayer\Http\Request;
+use Polidog\Relayer\Router\Component\PageContext;
+use Polidog\UsePhp\Html\H;
+
+// Components resolved at runtime via the compiled component manifest.
+// @psx-runtime App\Components\Shell
+// @psx-runtime App\Components\SearchForm
+
+/**
+ * Server-rendered search. Reads `?q=` from the Request (never the
+ * superglobals), runs the trigram full-text query through the store
+ * and renders highlighted results as PSX with Tailwind.
+ */
+return function (PageContext $ctx, Request $req, DocStore $store): Closure {
+    $query = \trim((string) ($req->query('q') ?? ''));
+
+    $ctx->metadata([
+        'title' => ('' !== $query ? $query . ' の検索結果' : '検索') . ' — Relayer Docs',
+        'description' => 'Relayer ドキュメントの全文検索。',
+    ]);
+
+    // Results depend on the query AND the corpus, so the ETag binds
+    // both. Same query against an unchanged corpus => 304, and the
+    // search itself (in the render closure) is then never run.
+    $ctx->cache(new Cache(
+        maxAge: 60,
+        public: true,
+        mustRevalidate: true,
+        etag: 'search-' . \sha1($query . '|' . $store->corpusTag()),
+    ));
+
+    return function () use ($store, $query) {
+        $hits = '' !== $query ? $store->search($query, 30) : [];
+
+        return (
+        <Shell store={$store} active={null}>
+            <section>
+                <h1 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">ドキュメント検索</h1>
+                <SearchForm query={$query} large={true} />
+
+                {'' === $query ? (
+                    <div className="py-8 text-slate-500">検索キーワードを入力してください。</div>
+                ) : ([] === $hits ? (
+                    <div className="py-8 text-slate-500">
+                        「<strong className="text-slate-800 dark:text-slate-200">{$query}</strong>」に一致するドキュメントは見つかりませんでした。
+                    </div>
+                ) : (
+                    <div>
+                        <p className="text-slate-500 text-sm">{\count($hits) . ' 件の結果'}</p>
+                        <ul className="list-none m-0 p-0">
+                            {array_map(fn ($hit) => (
+                                <li className="py-3.5 border-b border-slate-200 dark:border-slate-800">
+                                    <a
+                                        href={'/docs/' . $hit->slug}
+                                        className="text-base font-semibold text-indigo-600 dark:text-indigo-400 no-underline hover:underline"
+                                    >{$hit->title}</a>
+                                    {'' !== $hit->category
+                                        ? (<span className="ml-2.5 text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{$hit->category}</span>)
+                                        : null}
+                                    <p className="mt-1.5 text-slate-500 dark:text-slate-400 text-sm">
+                                        {array_map(fn (array $s) => $s['hit']
+                                            ? (<mark className="bg-yellow-200 dark:bg-yellow-500/30 text-inherit rounded px-0.5">{$s['text']}</mark>)
+                                            : $s['text'], $hit->segments)}
+                                    </p>
+                                </li>
+                            ), $hits)}
+                        </ul>
+                    </div>
+                ))}
+            </section>
+        </Shell>
+        );
+    };
+};

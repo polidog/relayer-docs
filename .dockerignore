@@ -1,0 +1,15 @@
+.git
+.github
+.gitignore
+vendor/
+var/
+bin/
+docs/
+*.pid
+.env
+.env.local
+.env.*.local
+.env.example
+.claude
+README.md
+ONBOARDING.md

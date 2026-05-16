@@ -1,0 +1,214 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * relayer-doc CLI — sync local Markdown into the doc store.
+ *
+ * Usage:
+ *   bin/docs migrate            create the schema (idempotent)
+ *   bin/docs status             show what a sync would change
+ *   bin/docs sync [--prune]     upsert changed pages (--prune deletes removed)
+ *   bin/docs list               list pages currently in the store
+ *
+ * Backend is chosen from the environment (see DocStoreFactory):
+ *   TURSO_DATABASE_URL set  -> Turso (remote)   otherwise -> var/docs.db
+ */
+
+use App\Docs\DocRecord;
+use App\Docs\DocStoreFactory;
+use Symfony\Component\Dotenv\Dotenv;
+use Symfony\Component\Yaml\Yaml;
+
+$root = \dirname(__DIR__);
+
+require_once $root . '/vendor/autoload.php';
+
+// Load .env (+ .env.local cascade) so the CLI sees the same config as
+// the web app — including TURSO_* credentials.
+if (\is_file($root . '/.env')) {
+    (new Dotenv())->loadEnv($root . '/.env');
+}
+
+$argv = $_SERVER['argv'] ?? [];
+$command = $argv[1] ?? 'help';
+$flags = \array_slice($argv, 2);
+$prune = \in_array('--prune', $flags, true);
+
+$docsDir = $root . '/docs';
+$store = DocStoreFactory::create($root);
+$target = DocStoreFactory::isRemote() ? 'Turso (remote)' : 'var/docs.db (local)';
+
+/**
+ * Read every docs/*.md, parse front matter, return DocRecords keyed by slug.
+ *
+ * @return array<string, DocRecord>
+ */
+$readLocal = static function (string $docsDir): array {
+    if (!\is_dir($docsDir)) {
+        \fwrite(\STDERR, "docs/ directory not found: {$docsDir}\n");
+
+        return [];
+    }
+
+    $records = [];
+    $files = \glob($docsDir . '/*.md') ?: [];
+    \sort($files);
+
+    foreach ($files as $file) {
+        $slug = \basename($file, '.md');
+        if (!\preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
+            \fwrite(\STDERR, "skip: invalid slug '{$slug}' (use lower-case, digits, hyphen)\n");
+
+            continue;
+        }
+
+        $raw = (string) \file_get_contents($file);
+        [$meta, $body] = parseFrontMatter($raw);
+
+        $title = (string) ($meta['title'] ?? '');
+        if ('' === $title && \preg_match('/^\#\s+(.+)$/m', $body, $m)) {
+            $title = \trim($m[1]);
+        }
+        if ('' === $title) {
+            $title = $slug;
+        }
+
+        $description = (string) ($meta['description'] ?? '');
+        $category = (string) ($meta['category'] ?? '');
+        $position = (int) ($meta['order'] ?? $meta['position'] ?? 0);
+        $body = \trim($body) . "\n";
+
+        $records[$slug] = new DocRecord(
+            slug: $slug,
+            title: $title,
+            description: $description,
+            category: $category,
+            position: $position,
+            content: $body,
+            hash: DocRecord::hashOf($title, $description, $category, $position, $body),
+            updatedAt: \gmdate('c'),
+        );
+    }
+
+    return $records;
+};
+
+/**
+ * Split `--- yaml --- body` front matter. Returns [meta, body].
+ *
+ * @return array{0: array<string, mixed>, 1: string}
+ */
+function parseFrontMatter(string $raw): array
+{
+    if (\preg_match('/^\xEF\xBB\xBF/', $raw)) {
+        $raw = \substr($raw, 3); // strip UTF-8 BOM
+    }
+    if (\preg_match('/^---\R(.*?)\R---\R?(.*)$/s', $raw, $m)) {
+        $meta = Yaml::parse($m[1]) ?? [];
+
+        return [\is_array($meta) ? $meta : [], $m[2]];
+    }
+
+    return [[], $raw];
+}
+
+$pad = static fn (string $s, int $w): string => $s . \str_repeat(' ', \max(0, $w - \mb_strwidth($s)));
+
+switch ($command) {
+    case 'migrate':
+        $store->migrate();
+        echo "migrated schema -> {$target}\n";
+
+        break;
+
+    case 'list':
+        $store->migrate();
+        $rows = $store->nav();
+        if ([] === $rows) {
+            echo "no documents in store ({$target}). Run: bin/docs sync\n";
+
+            break;
+        }
+        echo "documents in {$target}:\n";
+        foreach ($rows as $doc) {
+            echo '  ' . $pad($doc->slug, 22) . $pad($doc->category, 14) . $doc->title . "\n";
+        }
+        echo \count($rows) . " total\n";
+
+        break;
+
+    case 'status':
+    case 'sync':
+        $store->migrate();
+        $local = $readLocal($docsDir);
+        $remote = $store->hashes();
+
+        $new = $changed = $same = [];
+        foreach ($local as $slug => $rec) {
+            if (!isset($remote[$slug])) {
+                $new[] = $slug;
+            } elseif ($remote[$slug] !== $rec->hash) {
+                $changed[] = $slug;
+            } else {
+                $same[] = $slug;
+            }
+        }
+        $removed = \array_values(\array_diff(\array_keys($remote), \array_keys($local)));
+
+        echo "target: {$target}\n";
+        echo \sprintf(
+            "  new: %d  changed: %d  unchanged: %d  removed-locally: %d\n",
+            \count($new), \count($changed), \count($same), \count($removed),
+        );
+        foreach ($new as $s) {
+            echo "  + {$s}\n";
+        }
+        foreach ($changed as $s) {
+            echo "  ~ {$s}\n";
+        }
+        foreach ($removed as $s) {
+            echo '  - ' . $s . ($prune || 'sync' !== $command ? '' : ' (use --prune to delete)') . "\n";
+        }
+
+        if ('status' === $command) {
+            break;
+        }
+
+        foreach ($new as $s) {
+            $store->upsert($local[$s]);
+        }
+        foreach ($changed as $s) {
+            $store->upsert($local[$s]);
+        }
+        $deleted = [];
+        if ($prune) {
+            $deleted = $store->prune(\array_keys($local));
+        }
+
+        echo \sprintf(
+            "synced: %d upserted, %d deleted\n",
+            \count($new) + \count($changed),
+            \count($deleted),
+        );
+
+        break;
+
+    case 'help':
+    default:
+        echo <<<TXT
+            relayer-doc CLI
+
+              bin/docs migrate           create the schema (idempotent)
+              bin/docs status            preview changes vs the store
+              bin/docs sync [--prune]    upsert changed pages
+              bin/docs list              list pages in the store
+
+            backend: {$target}
+              set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN for the remote store.
+
+            TXT;
+
+        break;
+}

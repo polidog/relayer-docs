@@ -1,0 +1,5 @@
+/vendor/
+/var/
+/public/usephp.js
+/.env.local
+/.env.*.local

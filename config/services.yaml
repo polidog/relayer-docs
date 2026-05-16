@@ -1,0 +1,17 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: true
+
+  # The documentation store. Built by a factory that picks the backend
+  # from the environment: Turso when TURSO_DATABASE_URL is set,
+  # otherwise a local SQLite file under var/. autowire is off because
+  # the concrete dependency (SqlConnection) is chosen at runtime by the
+  # factory, not by the container.
+  App\Docs\DocStore:
+    factory: ['App\Docs\DocStoreFactory', 'create']
+    arguments:
+      - '%app.project_root%'
+    autowire: false
+    public: true

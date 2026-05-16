@@ -1,0 +1,77 @@
+# Deploy relayer-doc to Google Cloud Run.
+#
+# Docs are NOT synced here — content is written to Turso directly from
+# a local machine with `bin/docs sync --prune`. The Cloud Run service
+# only reads Turso (credentials come from Secret Manager, below).
+#
+# One-time setup
+# --------------
+# GCP (keyless auth via Workload Identity Federation):
+#   gcloud iam workload-identity-pools create github --location=global
+#   gcloud iam workload-identity-pools providers create-oidc github \
+#     --location=global --workload-identity-pool=github \
+#     --issuer-uri=https://token.actions.githubusercontent.com \
+#     --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
+#     --attribute-condition=assertion.repository=='polidog/relayer-docs'
+#   # a deployer service account with: roles/run.admin,
+#   # roles/cloudbuild.builds.editor, roles/artifactregistry.writer,
+#   # roles/storage.admin, roles/iam.serviceAccountUser. The Cloud Run
+#   # runtime SA needs roles/secretmanager.secretAccessor.
+#   gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+#     artifactregistry.googleapis.com secretmanager.googleapis.com
+#   # Turso creds the running service reads (see docs/deployment.md):
+#   gcloud secrets create turso-url   ; gcloud secrets create turso-token
+#
+# GitHub repo secrets:
+#   GCP_PROJECT_ID                 e.g. my-project
+#   GCP_WORKLOAD_IDENTITY_PROVIDER projects/N/locations/global/workloadIdentityPools/github/providers/github
+#   GCP_SERVICE_ACCOUNT            deployer@my-project.iam.gserviceaccount.com
+# Optional GitHub repo variable:
+#   GCP_REGION                     defaults to asia-northeast1
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SERVICE: relayer-doc
+  REGION: ${{ vars.GCP_REGION || 'asia-northeast1' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        env:
+          # Pass interpolated values through env (never inline in run:).
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --source . \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --allow-unauthenticated \
+            --cpu 1 --memory 512Mi \
+            --min-instances 0 --max-instances 4 \
+            --set-env-vars APP_ENV=production \
+            --set-secrets 'TURSO_DATABASE_URL=turso-url:latest,TURSO_AUTH_TOKEN=turso-token:latest'
