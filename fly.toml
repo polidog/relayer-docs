@@ -33,6 +33,10 @@ primary_region = "nrt"   # Tokyo — was asia-northeast1 on Cloud Run
   min_machines_running = 0
   processes = ["app"]
 
+# Cheapest tier: smallest shared CPU + minimum RAM. Single machine
+# (no HA) — a deliberate cost/availability trade-off for a low-traffic
+# docs site, same spirit as scale-to-zero above. Keep deploys single
+# with `fly deploy --ha=false`.
 [[vm]]
-  size = "shared-cpu-1x"   # ~1 shared vCPU, matches Cloud Run --cpu 1
-  memory = "512mb"         # matches Cloud Run --memory 512Mi
+  size = "shared-cpu-1x"   # smallest/cheapest CPU tier
+  memory = "256mb"         # minimum RAM tier (opcache tuned to fit, see docker/php.ini)
