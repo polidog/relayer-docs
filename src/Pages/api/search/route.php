@@ -7,6 +7,7 @@ use App\Docs\SearchHit;
 use Polidog\Relayer\Http\Cache;
 use Polidog\Relayer\Http\CachePolicy;
 use Polidog\Relayer\Http\Request;
+use Polidog\Relayer\Http\Response;
 
 /**
  * JSON search endpoint: GET /api/search?q=...&limit=...
@@ -16,7 +17,7 @@ use Polidog\Relayer\Http\Request;
  * Declaration-free: this file only returns the handler map.
  */
 return [
-    'GET' => function (Request $req, DocStore $store): array {
+    'GET' => function (Request $req, DocStore $store): Response {
         $query = \trim((string) ($req->query('q') ?? ''));
         $limit = (int) ($req->query('limit') ?? 20);
 
@@ -38,7 +39,7 @@ return [
 
         $hits = '' !== $query ? $store->search($query, $limit) : [];
 
-        return [
+        return Response::json([
             'query' => $query,
             'count' => \count($hits),
             'results' => \array_map(
@@ -55,6 +56,6 @@ return [
                 ],
                 $hits,
             ),
-        ];
+        ]);
     },
 ];
