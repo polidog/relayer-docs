@@ -6,7 +6,7 @@ use App\Components\SearchForm;
 use App\Components\Shell;
 use App\Docs\DocStore;
 use App\Docs\Nav;
-use Polidog\Relayer\Http\Cache;
+use App\PageCache;
 use Polidog\Relayer\Router\Component\PageContext;
 use Polidog\UsePhp\Html\H;
 
@@ -27,14 +27,10 @@ return function (PageContext $ctx, DocStore $store): Closure {
         'description' => 'Relayer — Next.js App Router 風の PHP フルスタックフレームワークのドキュメント。',
     ]);
 
-    // The index reflects the whole corpus, so its ETag is the corpus
-    // digest. no-cache => always revalidate (edits show immediately),
-    // 304 when nothing changed.
-    $ctx->cache(new Cache(
-        public: true,
-        noCache: true,
-        etag: 'home-' . $store->corpusTag(),
-    ));
+    // Time-based (PageCache::TTL); the ETag is the corpus digest so a
+    // post-expiry revalidation is a 304 when nothing changed. Edits
+    // via `bin/docs` surface after at most the TTL.
+    $ctx->cache(PageCache::timed('home-' . $store->corpusTag()));
 
     $groups = Nav::groups($store);
 

@@ -98,9 +98,18 @@ fly deploy                           # 初回はローカルから動作確認
 ### CI/CD（GitHub Actions）
 
 `.github/workflows/deploy.yml` が `main` push / 手動実行で `flyctl deploy
---remote-only`（Fly のリモートビルダーで Dockerfile をビルド）を実行します。
-必要な GitHub Secret は `FLY_API_TOKEN` のみ:
-`fly tokens create deploy --app relayer-doc` で発行してリポジトリ Secret に登録。
+--remote-only`（Fly のリモートビルダーで Dockerfile をビルド）を実行し、
+**成功後に Cloudflare のゾーンキャッシュをパージ**します（ページは
+`s-maxage` を持つため、パージしないと最大 TTL の間エッジが旧ビルドを
+配信し続ける）。必要な GitHub Secret は3つ:
+
+- `FLY_API_TOKEN` — `fly tokens create deploy --app relayer-doc` で発行
+- `CLOUDFLARE_ZONE_ID` — Cloudflare ダッシュボードの対象ゾーン Overview の「Zone ID」
+- `CLOUDFLARE_API_TOKEN` — My Profile → API Tokens → Create Token、
+  権限「Zone › Cache Purge › Purge」、対象ゾーンにスコープ
+
+いずれも GitHub → Settings → Secrets and variables → Actions に登録。
+Cloudflare の2つが未設定だとデプロイ後のパージステップで失敗します。
 
 記事の更新は CI ではなく**ローカル CLI**から Turso を直接編集:
 `bin/docs edit <slug>`（サーバーは Turso を読むだけ）。詳細はサイト内

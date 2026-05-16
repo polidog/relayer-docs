@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Docs\DocStore;
 use App\Docs\SearchHit;
-use Polidog\Relayer\Http\Cache;
+use App\PageCache;
 use Polidog\Relayer\Http\CachePolicy;
 use Polidog\Relayer\Http\Request;
 use Polidog\Relayer\Http\Response;
@@ -21,15 +21,11 @@ return [
         $query = \trim((string) ($req->query('q') ?? ''));
         $limit = (int) ($req->query('limit') ?? 20);
 
-        // Same content-addressed strategy as the pages: ETag binds the
-        // query + corpus digest, no-cache so clients always revalidate.
-        // On a conditional hit, short-circuit with 304 before running
-        // the search (mirrors the framework's function-page cache path).
-        $cache = new Cache(
-            public: true,
-            noCache: true,
-            etag: 'api-' . \sha1($query . '|' . $store->corpusTag()),
-        );
+        // Same time-based policy as the pages (PageCache::TTL). The
+        // ETag binds query + corpus digest, so a post-expiry
+        // revalidation short-circuits with 304 before the search runs
+        // (mirrors the framework's function-page cache path).
+        $cache = PageCache::timed('api-' . \sha1($query . '|' . $store->corpusTag()));
         CachePolicy::emit($cache);
         if (CachePolicy::isNotModified($cache)) {
             CachePolicy::sendNotModified();
