@@ -35,7 +35,7 @@ return function (PageContext $ctx, DocStore $store): Closure {
                     <p className="text-slate-500 dark:text-slate-400 my-4">{'ドキュメント「' . $slug . '」は存在しません。'}</p>
                     <a
                         href="/"
-                        className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-700 text-white no-underline"
+                        className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-yellow-300 hover:bg-yellow-400 text-slate-900 no-underline"
                     >ホームへ戻る</a>
                 </section>
             </Shell>
@@ -65,29 +65,10 @@ return function (PageContext $ctx, DocStore $store): Closure {
 
     $md = new Markdown();
     $body = $md->render($doc->content);
-    $outline = $md->outline($doc->content);
     $pn = Nav::prevNext(Nav::flat($store), $doc->slug);
 
-    $toc = [] === $outline ? null : (
-        <div>
-            <div className="font-bold text-slate-400 mb-2 text-xs uppercase tracking-wide">このページの内容</div>
-            <ul className="list-none m-0 p-0 border-l-2 border-slate-200 dark:border-slate-800">
-                {array_map(fn (array $h) => (
-                    <li>
-                        <a
-                            href={'#' . $h['id']}
-                            className={3 === $h['level']
-                                ? 'block py-1 pl-6 -ml-0.5 border-l-2 border-transparent text-xs text-slate-500 hover:text-slate-900 dark:hover:text-white no-underline'
-                                : 'block py-1 pl-3 -ml-0.5 border-l-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white no-underline'}
-                        >{$h['text']}</a>
-                    </li>
-                ), $outline)}
-            </ul>
-        </div>
-    );
-
     return fn () => (
-        <Shell store={$store} active={$doc->slug} toc={$toc}>
+        <Shell store={$store} active={$doc->slug}>
             <article>
                 <div className="flex gap-2 items-center text-xs text-slate-500 mb-3">
                     <a href="/" className="no-underline hover:text-slate-900 dark:hover:text-white">ホーム</a>
@@ -95,7 +76,7 @@ return function (PageContext $ctx, DocStore $store): Closure {
                     <span>{'' !== $doc->category ? $doc->category : 'ドキュメント'}</span>
                 </div>
 
-                <div className="prose prose-slate dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-pre:bg-slate-900 prose-pre:text-slate-100">
+                <div className="prose prose-slate dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-a:text-yellow-500 dark:prose-a:text-yellow-300 prose-pre:bg-slate-900 prose-pre:text-slate-100">
                     {$body}
                 </div>
 
@@ -104,7 +85,7 @@ return function (PageContext $ctx, DocStore $store): Closure {
                         {null !== $pn['prev'] ? (
                             <a
                                 href={'/docs/' . $pn['prev']->slug}
-                                className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-indigo-500 no-underline"
+                                className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-yellow-300 no-underline"
                             >
                                 <span className="text-xs text-slate-500">← 前へ</span>
                                 <span className="font-semibold text-slate-900 dark:text-white">{$pn['prev']->title}</span>
@@ -113,7 +94,7 @@ return function (PageContext $ctx, DocStore $store): Closure {
                         {null !== $pn['next'] ? (
                             <a
                                 href={'/docs/' . $pn['next']->slug}
-                                className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-indigo-500 text-right no-underline"
+                                className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-yellow-300 text-right no-underline"
                             >
                                 <span className="text-xs text-slate-500">次へ →</span>
                                 <span className="font-semibold text-slate-900 dark:text-white">{$pn['next']->title}</span>

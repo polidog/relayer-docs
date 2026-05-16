@@ -8,26 +8,22 @@ use App\Docs\Nav;
 use Polidog\UsePhp\Html\H;
 
 /**
- * The doc shell: sidebar (search + category nav) | content | optional
- * table of contents. Tailwind utilities, dark-mode aware. Shared by
- * every page so the chrome stays DRY.
+ * The doc shell: sidebar (search + category nav) | content. Tailwind
+ * utilities, dark-mode aware. Shared by every page so the chrome stays
+ * DRY.
  *
- * Props: store (DocStore), active (?string slug), toc (?Element),
- * children.
+ * Props: store (DocStore), active (?string slug), children.
  */
 return function (array $props) {
     $store = $props['store'];
     $active = $props['active'] ?? null;
-    $toc = $props['toc'] ?? null;
     $groups = Nav::groups($store);
 
-    $grid = null !== $toc
-        ? 'grid gap-8 items-start grid-cols-1 md:grid-cols-[244px_minmax(0,1fr)] lg:grid-cols-[244px_minmax(0,1fr)_200px]'
-        : 'grid gap-8 items-start grid-cols-1 md:grid-cols-[244px_minmax(0,1fr)]';
+    $grid = 'grid gap-8 items-start grid-cols-1 md:grid-cols-[244px_minmax(0,1fr)]';
 
     $linkBase = 'block px-2.5 py-1.5 rounded-md text-sm no-underline ';
     $linkOff = $linkBase . 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white';
-    $linkOn = $linkBase . 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-indigo-500/10 dark:text-indigo-300';
+    $linkOn = $linkBase . 'bg-yellow-50 text-yellow-600 font-semibold dark:bg-yellow-500/10 dark:text-yellow-200';
 
     return (
         <div className={$grid}>
@@ -55,10 +51,6 @@ return function (array $props) {
             <main className="min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-6 py-8 md:px-10">
                 {$props['children'] ?? null}
             </main>
-
-            {null !== $toc
-                ? (<aside className="hidden lg:block lg:sticky lg:top-20 self-start text-[13px]">{$toc}</aside>)
-                : null}
         </div>
     );
 };

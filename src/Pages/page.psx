@@ -49,13 +49,13 @@ return function (PageContext $ctx, DocStore $store): Closure {
                 <div className="flex gap-3 justify-center">
                     <a
                         href="/docs/getting-started"
-                        className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-700 text-white no-underline"
+                        className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-yellow-300 hover:bg-yellow-400 text-slate-900 no-underline"
                     >はじめる →</a>
                     <a
                         href="https://github.com/polidog/relayer"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block px-5 py-2.5 rounded-lg font-semibold border border-slate-300 dark:border-slate-700 hover:border-indigo-500 text-slate-800 dark:text-slate-200 no-underline"
+                        className="inline-block px-5 py-2.5 rounded-lg font-semibold border border-slate-300 dark:border-slate-700 hover:border-yellow-300 text-slate-800 dark:text-slate-200 no-underline"
                     >GitHub で見る</a>
                 </div>
             </section>

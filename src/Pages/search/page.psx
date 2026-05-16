@@ -60,7 +60,7 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                                 <li className="py-3.5 border-b border-slate-200 dark:border-slate-800">
                                     <a
                                         href={'/docs/' . $hit->slug}
-                                        className="text-base font-semibold text-indigo-600 dark:text-indigo-400 no-underline hover:underline"
+                                        className="text-base font-semibold text-yellow-500 dark:text-yellow-300 no-underline hover:underline"
                                     >{$hit->title}</a>
                                     {'' !== $hit->category
                                         ? (<span className="ml-2.5 text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{$hit->category}</span>)
