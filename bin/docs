@@ -24,8 +24,12 @@ declare(strict_types=1);
  *   TURSO_DATABASE_URL set  -> Turso (remote)   otherwise -> var/docs.db
  */
 
+use App\AppConfigurator;
 use App\Docs\DocRecord;
-use App\Docs\DocStoreFactory;
+use App\Docs\DocStore;
+use Symfony\Component\Config\FileLocator;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\Yaml\Yaml;
 
@@ -75,8 +79,22 @@ $hasFlag = static function (array &$args, string $name): bool {
     return false;
 };
 
-$store = DocStoreFactory::create($root);
-$target = DocStoreFactory::isRemote() ? 'Turso (remote)' : 'var/docs.db (local)';
+// The CLI has no HTTP request, but it resolves DocStore through the
+// same DI wiring the web app uses: AppConfigurator (the single
+// composition root) reads the env vars into parameters and
+// services.yaml injects them into DocStoreFactory. The factory itself
+// stays env-free and web/CLI can never disagree on the backend.
+$container = new ContainerBuilder();
+$container->setParameter('app.project_root', $root);
+(new AppConfigurator($root))->configure($container);
+(new YamlFileLoader($container, new FileLocator($root . '/config')))->load('services.yaml');
+$container->compile();
+
+$store = $container->get(DocStore::class);
+\assert($store instanceof DocStore);
+$target = '' !== (string) $container->getParameter('app.turso_url')
+    ? 'Turso (remote)'
+    : 'var/docs.db (local)';
 
 $fail = static function (string $msg): never {
     \fwrite(\STDERR, $msg . "\n");

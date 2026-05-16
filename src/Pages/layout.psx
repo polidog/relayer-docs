@@ -51,7 +51,7 @@ final class RootLayout extends LayoutComponent
                     </nav>
                 </header>
 
-                <div className="w-full max-w-7xl mx-auto px-6 py-7 flex-1">{$this->getChildren()}</div>
+                <div className="w-full max-w-7xl mx-auto px-3 py-7 md:px-6 flex-1">{$this->getChildren()}</div>
 
                 <footer className="text-center py-6 text-[13px] text-slate-500 border-t border-slate-200 dark:border-slate-800">
                     <span>Relayer Documentation</span>
