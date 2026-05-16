@@ -27,6 +27,16 @@
 # After that every push to main deploys automatically. Fly builds the
 # Dockerfile on its remote builder (--remote-only), so no Docker or
 # GCP credentials are needed in CI.
+#
+# Cloudflare cache purge — the site sits behind Cloudflare and pages
+# carry s-maxage (see App\PageCache), so Cloudflare's edge would keep
+# serving the previous build for up to the TTL after a deploy. The job
+# purges the whole zone once the deploy succeeds. Two more repo secrets
+# are required (from the Cloudflare dashboard, for this site's zone):
+#   CLOUDFLARE_ZONE_ID    — zone Overview page, "Zone ID"
+#   CLOUDFLARE_API_TOKEN  — My Profile → API Tokens → Create Token,
+#                           permission "Zone › Cache Purge › Purge",
+#                           Zone Resources scoped to this zone
 
 name: deploy
 
@@ -51,3 +61,28 @@ jobs:
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # Runs only when the deploy above succeeded (a failed step aborts
+      # the job). Purges the whole zone so visitors get the new build
+      # immediately instead of Cloudflare's s-maxage-cached copy.
+      - name: Purge Cloudflare cache
+        env:
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_ZONE_ID}" ] || [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "::error::CLOUDFLARE_ZONE_ID / CLOUDFLARE_API_TOKEN are not set. Add them under GitHub → Settings → Secrets and variables → Actions." >&2
+            exit 1
+          fi
+          resp="$(curl -sS --retry 3 --retry-delay 2 -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')"
+          echo "$resp"
+          if ! echo "$resp" | jq -e '.success == true' >/dev/null; then
+            echo "::error::Cloudflare cache purge failed (see API response above)." >&2
+            exit 1
+          fi
+          echo "Cloudflare cache purged for zone ${CLOUDFLARE_ZONE_ID} (purge_everything)."

@@ -6,6 +6,7 @@ use App\Components\Shell;
 use App\Docs\DocStore;
 use App\Docs\Markdown;
 use App\Docs\Nav;
+use App\PageCache;
 use Polidog\Relayer\Http\Cache;
 use Polidog\Relayer\Router\Component\PageContext;
 use Polidog\UsePhp\Html\H;
@@ -53,15 +54,11 @@ return function (PageContext $ctx, DocStore $store): Closure {
     // above intentionally skips this — no code blocks there.
     $ctx->js('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js', defer: true);
 
-    // Content-addressed revalidation: no max-age (content is edited
-    // out-of-band via `bin/docs`, so edits must show immediately), but
-    // the ETag is the page's own content hash — an unchanged page
-    // revalidates as 304 and skips the (heavy) Markdown render below.
-    $ctx->cache(new Cache(
-        public: true,
-        noCache: true,
-        etag: 'doc-' . $doc->hash,
-    ));
+    // Time-based (PageCache::TTL): a cache hit never wakes PHP or the
+    // remote Turso DB. The ETag is the page's own content hash, so a
+    // post-expiry revalidation is a 304 that skips the (heavy) Markdown
+    // render below. Edits via `bin/docs` surface after at most the TTL.
+    $ctx->cache(PageCache::timed('doc-' . $doc->hash));
 
     $md = new Markdown();
     $body = $md->render($doc->content);
