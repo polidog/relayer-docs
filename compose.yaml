@@ -1,36 +1,15 @@
-# Local stack: the production app image (FrankenPHP + phpredis) plus a
-# Redis for the dynamic-ETag validator store. Turso credentials come
-# from .env.local (optional — without them the image has no local
-# SQLite, so set TURSO_* there for a useful local run). REDIS_URL points
-# at the `redis` service so the app uses RedisEtagStore exactly like
-# production; prod only swaps in a managed `rediss://` endpoint.
+# Local development: run the production FrankenPHP app image with one
+# command. Turso credentials come from .env.local (optional — set
+# TURSO_* there for a useful local run; without them the image ships no
+# local SQLite).
 #
 #   docker compose up --build
-#   docker compose exec app bin/docs reindex   # warm the validators
 #
-# Redis is pure cache here (no persistence): it self-heals via
-# `bin/docs reindex` and the producer writes on every edit.
 services:
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   app:
     build: .
     env_file:
       - path: .env.local
         required: false
-    environment:
-      REDIS_URL: redis://redis:6379
     ports:
       - "8080:8080"
-    depends_on:
-      redis:
-        condition: service_healthy
