@@ -92,6 +92,15 @@ fly secrets set \
 fly deploy                           # 初回はローカルから動作確認
 ```
 
+Google Analytics（任意）: GA4 測定 ID を Fly secret に設定すると
+**本番のみ**計測が有効になります。未設定なら `gtag` を一切出力しない
+ので、ローカル/dev のトラフィックは計測されません。値は `G-XXXXXXXXXX`
+形式のみ受理（不正値は無視）。
+
+```bash
+fly secrets set GA_MEASUREMENT_ID=G-XXXXXXXXXX --app relayer-doc
+```
+
 ローカル確認: `docker build -t relayer-doc . && docker run -p 8080:8080 \
  -e TURSO_DATABASE_URL=... -e TURSO_AUTH_TOKEN=... relayer-doc`
 
