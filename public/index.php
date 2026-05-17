@@ -112,6 +112,30 @@ $nav = <<<'HTML'
 </script>
 HTML;
 
+// Google Analytics 4 (gtag.js) — global <head>, like the snippets
+// above. The Measurement ID comes from GA_MEASUREMENT_ID (a Fly
+// secret); it is read here from the real process env, before
+// Relayer::boot() loads any `.env`, so it is set in production only
+// and local/dev traffic never reaches the property. The value is
+// validated against the canonical `G-XXXX` shape before it is
+// interpolated, so a malformed or hostile env value cannot inject
+// markup. Cloudflare Rocket Loader is off, so the inline init runs
+// as written.
+$gaId = $_ENV['GA_MEASUREMENT_ID'] ?? $_SERVER['GA_MEASUREMENT_ID'] ?? \getenv('GA_MEASUREMENT_ID');
+$gaId = \is_string($gaId) ? \trim($gaId) : '';
+$ga = '';
+if ('' !== $gaId && \preg_match('/^G-[A-Z0-9]+$/', $gaId)) {
+    $ga = <<<HTML
+    <script async src="https://www.googletagmanager.com/gtag/js?id={$gaId}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '{$gaId}');
+    </script>
+    HTML;
+}
+
 $document = HtmlDocument::create()
     ->setLang('ja')
     ->setTitle('Relayer ドキュメント')
@@ -119,6 +143,10 @@ $document = HtmlDocument::create()
     ->addHeadHtml($tailwind)
     ->addHeadHtml($highlight)
     ->addHeadHtml($nav);
+
+if ('' !== $ga) {
+    $document = $document->addHeadHtml($ga);
+}
 
 // dirname() (not __DIR__ . '/..') so the project root is a clean
 // absolute path. The PSX page/component caches are keyed off it; a
