@@ -8,15 +8,17 @@
 # request, no state shared between requests — so PSX/Relayer needs no
 # adaptation.
 #
-# The PSX caches are keyed by the absolute realpath of each source, so
+# The PSX cache is keyed by the absolute realpath of each source, so
 # the build MUST run at the same path the container serves from
-# (/var/www/html). Two caches are precompiled:
-#   - components -> /var/www/html/var/cache/psx       (manifest, absolute paths)
-#   - pages/layout -> /var/www/html/src/var/cache/psx (dirname(appDir)/var/cache)
-# Pages reference components via `// @psx-runtime` so the batch
-# compiler resolves them through the runtime manifest. At runtime the
-# app does zero filesystem writes (Turso over HTTP, literal-ETag
-# cache, NullProfiler).
+# (/var/www/html). relayer 0.8.0 uses ONE cache dir for everything —
+# components, pages and layout — at <projectRoot>/var/cache/psx (see
+# Relayer::boot, which pins psxCacheDir there; an earlier split into
+# src/var/cache/psx is what 0.8.0 explicitly removed). So both source
+# roots are compiled together into that single dir: PascalCase
+# components land in manifest.php and are resolved via the runtime
+# manifest; lowercase page.psx/layout.psx are loaded directly by their
+# sha1 path. At runtime the app does zero filesystem writes (Turso
+# over HTTP, time-based + ETag cache, NullProfiler).
 FROM dunglas/frankenphp:php8.5
 
 # The official php base (shared with FrankenPHP) already bundles
@@ -39,13 +41,14 @@ ENV APP_ENV=production \
 WORKDIR /var/www/html
 
 # Full tree first (composer post-install publishes public/usephp.js),
-# then install + precompile both PSX caches with ABSOLUTE --cache so
-# the component manifest stores absolute paths that resolve at runtime.
+# then install + precompile the PSX cache. One invocation over both
+# source roots → one manifest covering the components, with every
+# compiled artifact in the single dir relayer resolves from. ABSOLUTE
+# --cache so the manifest stores absolute paths that resolve at runtime.
 COPY . .
 RUN set -eux; \
     composer install --no-dev --optimize-autoloader --no-interaction; \
-    php vendor/bin/usephp compile src/Components --cache=/var/www/html/var/cache/psx; \
-    php vendor/bin/usephp compile src/Pages --cache=/var/www/html/src/var/cache/psx; \
+    php vendor/bin/usephp compile src/Components src/Pages --cache=/var/www/html/var/cache/psx; \
     rm -rf var/cache/profiler var/cache/etags
 
 COPY docker/Caddyfile /etc/frankenphp/Caddyfile
