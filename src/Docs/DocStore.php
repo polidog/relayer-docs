@@ -46,6 +46,43 @@ final class DocStore
                 . ')',
                 [],
             ],
+            // Append-only change history. `id` (rowid alias) is the
+            // monotonic order; the oldest row per slug is its creation.
+            // The full snapshot is kept so a future diff/restore needs
+            // no migration.
+            [
+                'CREATE TABLE IF NOT EXISTS document_revisions ('
+                . ' id INTEGER PRIMARY KEY,'
+                . ' slug TEXT NOT NULL,'
+                . ' title TEXT NOT NULL,'
+                . " description TEXT NOT NULL DEFAULT '',"
+                . " category TEXT NOT NULL DEFAULT '',"
+                . ' content TEXT NOT NULL,'
+                . ' hash TEXT NOT NULL,'
+                . ' recorded_at TEXT NOT NULL'
+                . ')',
+                [],
+            ],
+            [
+                'CREATE INDEX IF NOT EXISTS idx_revisions_slug'
+                . ' ON document_revisions (slug, id)',
+                [],
+            ],
+            // Backfill: give every existing page one revision (its
+            // current state) so history is never empty for docs that
+            // predate this table. Idempotent — only slugs with no
+            // revision yet are seeded, so it is safe to re-run (migrate
+            // runs at the start of every CLI command).
+            [
+                'INSERT INTO document_revisions'
+                . ' (slug, title, description, category, content, hash, recorded_at)'
+                . ' SELECT slug, title, description, category, content, hash, updated_at'
+                . ' FROM documents d'
+                . ' WHERE NOT EXISTS ('
+                . '   SELECT 1 FROM document_revisions r WHERE r.slug = d.slug'
+                . ' )',
+                [],
+            ],
         ]);
     }
 
@@ -92,6 +129,77 @@ final class DocStore
         return \array_map(DocRecord::fromRow(...), $rows);
     }
 
+    /**
+     * One page's change history, newest first. The body is not
+     * selected (list view shows date + title only); see
+     * {@see DocRevision}.
+     *
+     * @return list<DocRevision>
+     */
+    public function revisions(string $slug, int $limit = 50): array
+    {
+        return $this->readRevisions(
+            'SELECT id, slug, title, category, hash, recorded_at'
+            . ' FROM document_revisions WHERE slug = ?'
+            . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 200)),
+            [$slug],
+        );
+    }
+
+    /**
+     * Recent changes across every page, newest first — the
+     * site-wide changelog feed.
+     *
+     * @return list<DocRevision>
+     */
+    public function recentRevisions(int $limit = 200): array
+    {
+        return $this->readRevisions(
+            'SELECT id, slug, title, category, hash, recorded_at'
+            . ' FROM document_revisions'
+            . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 500)),
+        );
+    }
+
+    /**
+     * The timestamp of a page's last *content* change (its newest
+     * revision), or null when there is no history yet. Preferred over
+     * `documents.updated_at` for display: a no-op `bin/docs edit`
+     * bumps that column but records no revision, so this stays put.
+     */
+    public function lastChangedAt(string $slug): ?string
+    {
+        $revs = $this->revisions($slug, 1);
+
+        return [] === $revs ? null : $revs[0]->recordedAt;
+    }
+
+    /**
+     * @param list<mixed> $params
+     *
+     * @return list<DocRevision>
+     */
+    private function readRevisions(string $sql, array $params = []): array
+    {
+        try {
+            $rows = $this->conn->query($sql, $params);
+        } catch (\Throwable $e) {
+            // The web app reads Turso but cannot create the table; the
+            // schema is provisioned by `bin/docs migrate` from a local
+            // machine. If a web deploy briefly precedes that migrate,
+            // degrade the *history widget* to empty rather than 500 the
+            // whole article. Anything that is not the missing table is
+            // a real fault and must still surface.
+            if (\str_contains($e->getMessage(), 'document_revisions')) {
+                return [];
+            }
+
+            throw $e;
+        }
+
+        return \array_map(DocRevision::fromRow(...), $rows);
+    }
+
     public function count(): int
     {
         $rows = $this->conn->query('SELECT COUNT(*) AS c FROM documents');
@@ -115,7 +223,19 @@ final class DocStore
 
     public function upsert(DocRecord $doc): void
     {
-        $this->conn->transactional([
+        // A new revision is recorded only when the content actually
+        // changed (new page, or a different hash). `bin/docs edit`
+        // always bumps `updated_at` even on a no-op save, so keying the
+        // history off the hash keeps it free of empty entries. The read
+        // is fine outside the transaction: the only writer is the
+        // single-process CLI.
+        $prev = $this->conn->query(
+            'SELECT hash FROM documents WHERE slug = ? LIMIT 1',
+            [$doc->slug],
+        );
+        $changed = [] === $prev || (string) ($prev[0]['hash'] ?? '') !== $doc->hash;
+
+        $ops = [
             [
                 'INSERT INTO documents'
                 . ' (slug, title, description, category, position, content, hash, updated_at)'
@@ -135,7 +255,24 @@ final class DocStore
                 'INSERT INTO documents_fts (slug, title, description, content) VALUES (?, ?, ?, ?)',
                 [$doc->slug, $doc->title, $doc->description, $doc->content],
             ],
-        ]);
+        ];
+
+        if ($changed) {
+            // Same transaction as the row + FTS write, mirroring the
+            // store's invariant: history, content and search index can
+            // never disagree about what was published.
+            $ops[] = [
+                'INSERT INTO document_revisions'
+                . ' (slug, title, description, category, content, hash, recorded_at)'
+                . ' VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [
+                    $doc->slug, $doc->title, $doc->description, $doc->category,
+                    $doc->content, $doc->hash, $doc->updatedAt,
+                ],
+            ];
+        }
+
+        $this->conn->transactional($ops);
     }
 
     public function delete(string $slug): void
