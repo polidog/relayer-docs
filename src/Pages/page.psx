@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Components\SearchForm;
 use App\Components\Shell;
 use App\Docs\DocStore;
 use App\Docs\Nav;
@@ -13,13 +12,12 @@ use Polidog\UsePhp\Html\H;
 // PSX components are resolved at runtime via the compiled component
 // manifest, so the batch compiler must not treat them as unresolved.
 // @psx-runtime App\Components\Shell
-// @psx-runtime App\Components\SearchForm
 
 /**
- * Home — landing-style: a two-column hero (pitch + feature badges +
- * CTA on the left, search + quick links on the right) followed by the
- * full doc index grouped by category. Function-style, two-level: the
- * factory sets metadata, the returned closure renders the PSX tree.
+ * Home — landing-style: a single-column hero (pitch + CTA + quick
+ * links; no feature tags, no search box) followed by the full doc
+ * index grouped by category. Function-style, two-level: the factory
+ * sets metadata, the returned closure renders the PSX tree.
  */
 return function (PageContext $ctx, DocStore $store): Closure {
     $ctx->metadata([
@@ -34,12 +32,6 @@ return function (PageContext $ctx, DocStore $store): Closure {
 
     $groups = Nav::groups($store);
 
-    $features = [
-        'ファイルベース Routing', 'JSON API', 'サーバーアクション/CSRF',
-        '認証', 'バリデーション', 'HTTP キャッシュ/ETag', 'DB',
-        'React アイランド', 'プロファイラ',
-    ];
-
     $quickLinks = [
         ['label' => 'はじめに', 'href' => '/docs/getting-started'],
         ['label' => 'usePHP', 'href' => '/docs/usephp'],
@@ -48,46 +40,31 @@ return function (PageContext $ctx, DocStore $store): Closure {
 
     return fn () => (
         <Shell store={$store} active={null}>
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center py-8">
-                <div>
-                    <h1 className="text-4xl font-bold mb-3 text-slate-900 dark:text-white">
-                        Relayer ドキュメント
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mb-5">
-                        Next.js App Router 風の規約で、ルーティング・API・認証・
-                        キャッシュ・DB をひとつの boot エントリにまとめた、
-                        規約重視の PHP フルスタックフレームワーク。
-                    </p>
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        {array_map(fn (string $f) => (
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-900 dark:bg-yellow-300/10 dark:text-yellow-300">
-                                {$f}
-                            </span>
-                        ), $features)}
-                    </div>
+            <section className="py-8">
+                <h1 className="text-4xl font-bold mb-3 text-slate-900 dark:text-white">
+                    Relayer ドキュメント
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-2xl">
+                    Next.js App Router 風の規約で、ルーティング・API・認証・
+                    キャッシュ・DB をひとつの boot エントリにまとめた、
+                    規約重視の PHP フルスタックフレームワーク。
+                </p>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                     <a
                         href="/docs/getting-started"
                         className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-yellow-300 hover:bg-yellow-400 text-slate-900 no-underline"
                     >はじめる →</a>
-                </div>
-
-                <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
-                    <SearchForm large={true} />
-                    <ul className="list-none m-0 mt-3 p-0">
-                        {array_map(fn (array $l) => (
-                            <li>
-                                <a
-                                    href={$l['href']}
-                                    className="block px-2 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
-                                >▸ {$l['label']}</a>
-                            </li>
-                        ), $quickLinks)}
-                    </ul>
+                    {array_map(fn (array $l) => (
+                        <a
+                            href={$l['href']}
+                            className="text-sm text-slate-600 dark:text-slate-300 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
+                        >{$l['label']}</a>
+                    ), $quickLinks)}
                     <a
                         href="https://github.com/polidog/relayer"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block mt-3 px-2 text-sm text-slate-500 dark:text-slate-400 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
+                        className="text-sm text-slate-500 dark:text-slate-400 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
                     >GitHub ↗</a>
                 </div>
             </section>
