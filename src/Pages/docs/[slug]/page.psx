@@ -73,7 +73,7 @@ return function (PageContext $ctx, DocStore $store): Closure {
                     <span>{'' !== $doc->category ? $doc->category : 'ドキュメント'}</span>
                 </div>
 
-                <div className="prose prose-slate dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-a:text-yellow-500 dark:prose-a:text-yellow-300 prose-pre:bg-slate-900 prose-pre:text-slate-100">
+                <div className="prose prose-slate dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-a:text-yellow-500 dark:prose-a:text-yellow-300 prose-pre:bg-slate-950 prose-pre:text-slate-100">
                     {$body}
                 </div>
 
