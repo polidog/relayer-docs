@@ -1,0 +1,15 @@
+# Local development: run the production FrankenPHP app image with one
+# command. Turso credentials come from .env.local (optional — set
+# TURSO_* there for a useful local run; without them the image ships no
+# local SQLite).
+#
+#   docker compose up --build
+#
+services:
+  app:
+    build: .
+    env_file:
+      - path: .env.local
+        required: false
+    ports:
+      - "8080:8080"
