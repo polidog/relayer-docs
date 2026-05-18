@@ -8,12 +8,31 @@ use Polidog\Relayer\Router\Document\HtmlDocument;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-// PHP's session module otherwise injects `Cache-Control: no-store,
-// no-cache, must-revalidate` on session_start(), clobbering the
-// per-page policy we set via $ctx->cache(). Disable that so the
-// content-addressed ETag + max-age headers stand. (This is a public
-// docs site; pages opt into caching explicitly.)
+// Relayer renders every page through a use-php component whose state
+// storage defaults to StorageType::Session (AppRouter::renderPage ->
+// ComponentState::getInstance($componentId) with no type), so a PHP
+// session is started on every request even though this public docs
+// site has no session-dependent feature (no auth, no CSRF
+// server-action forms, no useState). Two unwanted side effects of
+// that spurious session_start(), both disabled here:
+//
+//  1. session.cache_limiter: PHP injects `Cache-Control: no-store,
+//     no-cache, must-revalidate`, clobbering the per-page policy set
+//     via $ctx->cache(). Empty it so the App\PageCache ETag +
+//     max-age/s-maxage headers stand.
+//  2. session.use_cookies: PHP emits `Set-Cookie: PHPSESSID=...`.
+//     Cloudflare hard-bypasses its edge cache for ANY response that
+//     carries Set-Cookie, so this single cookie made every HTML page
+//     uncacheable (cf-cache-status: BYPASS) and defeated
+//     App\PageCache::SHARED_TTL entirely. Suppress the cookie: with
+//     no session-dependent feature there is nothing to persist, and
+//     the read pages become edge-cacheable as intended.
 \ini_set('session.cache_limiter', '');
+\ini_set('session.use_cookies', '0');
+// Defense-in-depth: with the cookie off, make sure PHP does not fall
+// back to putting the session id in URLs/query (prod default is 0;
+// set explicitly so a future php.ini change can't leak SIDs).
+\ini_set('session.use_trans_sid', '0');
 
 // Tailwind via the Play CDN (+ typography plugin) — no Node/build step,
 // honoring Relayer's "no build" rule while still being Tailwind-based.
