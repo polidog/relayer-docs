@@ -45,10 +45,19 @@ WORKDIR /var/www/html
 # source roots → one manifest covering the components, with every
 # compiled artifact in the single dir relayer resolves from. ABSOLUTE
 # --cache so the manifest stores absolute paths that resolve at runtime.
+#
+# `relayer routes:compile` is the route-level counterpart: it scans
+# src/Pages once at build (filesystem only — no Turso) and writes
+# var/cache/routes/routes.php, so the runtime reads that OPcache'd
+# snapshot instead of walking the tree on every request (classic mode
+# = one scan per request otherwise). It reuses the router's own
+# PageScanner, so a route-group URL collision or page/route ambiguity
+# fails the build here, at deploy, not on the first production request.
 COPY . .
 RUN set -eux; \
     composer install --no-dev --optimize-autoloader --no-interaction; \
     php vendor/bin/usephp compile src/Components src/Pages --cache=/var/www/html/var/cache/psx; \
+    php vendor/bin/relayer routes:compile; \
     rm -rf var/cache/profiler var/cache/etags
 
 COPY docker/Caddyfile /etc/frankenphp/Caddyfile
