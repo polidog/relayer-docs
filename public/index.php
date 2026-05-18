@@ -8,31 +8,23 @@ use Polidog\Relayer\Router\Document\HtmlDocument;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-// Relayer renders every page through a use-php component whose state
-// storage defaults to StorageType::Session (AppRouter::renderPage ->
-// ComponentState::getInstance($componentId) with no type), so a PHP
-// session is started on every request even though this public docs
-// site has no session-dependent feature (no auth, no CSRF
-// server-action forms, no useState). Two unwanted side effects of
-// that spurious session_start(), both disabled here:
+// If a PHP session is ever started, PHP's session module injects
+// `Cache-Control: no-store, no-cache, must-revalidate`, which would
+// clobber the per-page policy set via $ctx->cache(). Empty the
+// cache_limiter so the App\PageCache ETag + max-age/s-maxage headers
+// stand. (Public docs site; pages opt into caching explicitly.)
 //
-//  1. session.cache_limiter: PHP injects `Cache-Control: no-store,
-//     no-cache, must-revalidate`, clobbering the per-page policy set
-//     via $ctx->cache(). Empty it so the App\PageCache ETag +
-//     max-age/s-maxage headers stand.
-//  2. session.use_cookies: PHP emits `Set-Cookie: PHPSESSID=...`.
-//     Cloudflare hard-bypasses its edge cache for ANY response that
-//     carries Set-Cookie, so this single cookie made every HTML page
-//     uncacheable (cf-cache-status: BYPASS) and defeated
-//     App\PageCache::SHARED_TTL entirely. Suppress the cookie: with
-//     no session-dependent feature there is nothing to persist, and
-//     the read pages become edge-cacheable as intended.
+// The related `Set-Cookie: PHPSESSID` problem — which made Cloudflare
+// hard-bypass the edge cache on every HTML page and defeated
+// App\PageCache::SHARED_TTL — is fixed upstream, not here: use-php
+// >= 0.7.1 starts the session lazily, so the Session-typed
+// ComponentState relayer creates for a stateless page no longer emits
+// a cookie. We deliberately do NOT set `session.use_cookies=0` as an
+// app-level workaround anymore: that would silently break any future
+// page that does use auth / CSRF / useState. Keep relying on the
+// framework fix (composer constraint pins relayer ^0.12.1, which
+// requires use-php >= 0.7.1).
 \ini_set('session.cache_limiter', '');
-\ini_set('session.use_cookies', '0');
-// Defense-in-depth: with the cookie off, make sure PHP does not fall
-// back to putting the session id in URLs/query (prod default is 0;
-// set explicitly so a future php.ini change can't leak SIDs).
-\ini_set('session.use_trans_sid', '0');
 
 // Tailwind via the Play CDN (+ typography plugin) — no Node/build step,
 // honoring Relayer's "no build" rule while still being Tailwind-based.

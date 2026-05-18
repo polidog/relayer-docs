@@ -1,6 +1,6 @@
 {
     "require": {
-        "polidog/relayer": "^0.12.0"
+        "polidog/relayer": "^0.12.1"
     },
     "autoload": {
         "psr-4": {
