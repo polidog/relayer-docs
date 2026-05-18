@@ -6,6 +6,9 @@ namespace App\Components;
 
 use App\Docs\Nav;
 use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Storage\StorageType;
+
+use function Polidog\UsePhp\Runtime\fc;
 
 /**
  * The doc shell: sidebar (search + category nav) | content. Tailwind
@@ -13,8 +16,16 @@ use Polidog\UsePhp\Html\H;
  * DRY.
  *
  * Props: store (DocStore), active (?string slug), children.
+ *
+ * Wrapped in fc(..., StorageType::Memory) for the same reason as
+ * SearchForm: this shell is stateless, but use-php's default
+ * StorageType::Session starts a PHP session on render and emits
+ * `Set-Cookie: PHPSESSID`, which forces Cloudflare to BYPASS the
+ * edge cache on every page. Memory storage is session-free, keeping
+ * the read pages cacheable (App\PageCache s-maxage).
  */
-return function (array $props) {
+return fc(
+    function (array $props) {
     $store = $props['store'];
     $active = $props['active'] ?? null;
     $groups = Nav::groups($store);
@@ -53,4 +64,6 @@ return function (array $props) {
             </main>
         </div>
     );
-};
+    },
+    storageType: StorageType::Memory,
+);

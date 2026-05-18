@@ -5,29 +5,43 @@ declare(strict_types=1);
 namespace App\Components;
 
 use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Storage\StorageType;
+
+use function Polidog\UsePhp\Runtime\fc;
 
 /**
  * Search box. `query` pre-fills the field; `large` switches to the
  * hero/results size. Plain GET form -> /search (works without JS).
  * Tailwind, dark-mode aware.
+ *
+ * Wrapped in fc(..., StorageType::Memory): this component holds no
+ * state, but use-php's default StorageType::Session would construct a
+ * SessionStorage (which calls session_start()) on every render. That
+ * emits `Set-Cookie: PHPSESSID`, which makes Cloudflare BYPASS the
+ * cache for every page this appears on (i.e. all of them). Memory
+ * storage is session-free, so the read pages stay edge-cacheable
+ * (App\PageCache s-maxage). No snapshot secret needed.
  */
-return fn (array $props) => (
-    <form
-        action="/search"
-        method="get"
-        className={($props['large'] ?? false) ? 'flex gap-1.5 mb-4 max-w-lg mx-auto' : 'flex gap-1.5 mb-4'}
-    >
-        <input
-            type="search"
-            name="q"
-            value={$props['query'] ?? null}
-            placeholder="ドキュメントを検索…"
-            autocomplete="off"
-            className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
-        />
-        <button
-            type="submit"
-            className="px-3 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-slate-900 text-sm whitespace-nowrap"
-        >検索</button>
-    </form>
+return fc(
+    fn (array $props) => (
+        <form
+            action="/search"
+            method="get"
+            className={($props['large'] ?? false) ? 'flex gap-1.5 mb-4 max-w-lg mx-auto' : 'flex gap-1.5 mb-4'}
+        >
+            <input
+                type="search"
+                name="q"
+                value={$props['query'] ?? null}
+                placeholder="ドキュメントを検索…"
+                autocomplete="off"
+                className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+            />
+            <button
+                type="submit"
+                className="px-3 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-slate-900 text-sm whitespace-nowrap"
+            >検索</button>
+        </form>
+    ),
+    storageType: StorageType::Memory,
 );
