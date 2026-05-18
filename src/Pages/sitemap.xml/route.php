@@ -22,14 +22,21 @@ use Polidog\Relayer\Http\Response;
  * `bin/docs migrate` has run for the history feature.
  *
  * Same cache contract as the other corpus endpoints: a long edge
- * s-maxage plus a `corpusTag` ETag, so it is regenerated only when
- * some page actually changed and a post-expiry hit is a cheap 304.
+ * s-maxage plus an ETag, so it is regenerated only when its output
+ * could differ and a post-expiry hit is a cheap 304. The ETag binds
+ * both inputs to the body: `corpusTag` (which page changed) AND a
+ * digest of `SiteUrl::base()` — every `<loc>` is absolute, so a
+ * base-URL change (domain move / `SITE_URL`) must also bust it,
+ * otherwise a conditional request could 304 to a stale host.
  *
  * Declaration-free: this file only returns the handler map.
  */
 return [
     'GET' => function (DocStore $store): Response {
-        $cache = PageCache::timed('sitemap-' . $store->corpusTag());
+        $base = SiteUrl::base();
+        $cache = PageCache::timed(
+            'sitemap-' . \substr(\sha1($base), 0, 8) . '-' . $store->corpusTag(),
+        );
         CachePolicy::emit($cache);
         if (CachePolicy::isNotModified($cache)) {
             CachePolicy::sendNotModified();
@@ -61,7 +68,6 @@ return [
                 . '<priority>' . $priority . '</priority></url>';
         };
 
-        $base = SiteUrl::base();
         $docs = $store->nav();
 
         $latest = '';

@@ -16,14 +16,19 @@ use Polidog\Relayer\Http\Response;
  * budget goes to the docs. `/og/` stays allowed — those images are
  * fine to index and blocking them can hurt social/image previews.
  *
- * The body only varies with the site's base URL, which is constant
- * on the canonical domain, so a static template ETag is enough.
+ * The body only varies with the site's base URL (the absolute
+ * `Sitemap:` line), so the ETag is a digest of `SiteUrl::base()` —
+ * constant on the canonical domain, but a base-URL change (domain
+ * move / `SITE_URL`) busts it instead of a conditional request
+ * 304ing to a stale `Sitemap:` host.
  *
  * Declaration-free: this file only returns the handler map.
  */
 return [
     'GET' => function (): Response {
-        $cache = PageCache::timed('robots-v1');
+        $cache = PageCache::timed(
+            'robots-' . \substr(\sha1(SiteUrl::base()), 0, 8),
+        );
         CachePolicy::emit($cache);
         if (CachePolicy::isNotModified($cache)) {
             CachePolicy::sendNotModified();
