@@ -147,13 +147,30 @@ if ('' !== $gaId && \preg_match('/^G-[A-Z0-9]+$/', $gaId)) {
     HTML;
 }
 
+// Open Graph / Twitter — only the page-invariant tags live here, once.
+// Everything that varies per page (og:title/description/url/image,
+// twitter:title/description/image) is emitted via `$ctx->metadata()`
+// through App\Meta, so there are no duplicate tags. The image box
+// mirrors App\Og\OgImage::WIDTH/HEIGHT — keep them in sync.
+$og = <<<'HTML'
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relayer ドキュメント">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Relayer ドキュメント">
+<meta name="twitter:card" content="summary_large_image">
+HTML;
+
 $document = HtmlDocument::create()
     ->setLang('ja')
     ->setTitle('Relayer ドキュメント')
     ->disableDefaultStyles()
     ->addHeadHtml($tailwind)
     ->addHeadHtml($highlight)
-    ->addHeadHtml($nav);
+    ->addHeadHtml($nav)
+    ->addHeadHtml($og);
 
 if ('' !== $ga) {
     $document = $document->addHeadHtml($ga);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Components\Shell;
 use App\Docs\DocStore;
 use App\Docs\Nav;
+use App\Meta;
 use App\PageCache;
 use Polidog\Relayer\Router\Component\PageContext;
 use Polidog\UsePhp\Html\H;
@@ -20,10 +21,12 @@ use Polidog\UsePhp\Html\H;
  * sets metadata, the returned closure renders the PSX tree.
  */
 return function (PageContext $ctx, DocStore $store): Closure {
-    $ctx->metadata([
-        'title' => 'Relayer ドキュメント',
-        'description' => 'Relayer — Next.js App Router 風の PHP フルスタックフレームワークのドキュメント。',
-    ]);
+    $ctx->metadata(Meta::forPage(
+        'Relayer ドキュメント',
+        'Relayer — Next.js App Router 風の PHP フルスタックフレームワークのドキュメント。',
+        '/',
+        'home',
+    ));
 
     // Time-based (PageCache::TTL); the ETag is the corpus digest so a
     // post-expiry revalidation is a 304 when nothing changed. Edits

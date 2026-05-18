@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Components\SearchForm;
 use App\Components\Shell;
 use App\Docs\DocStore;
+use App\Meta;
 use App\PageCache;
 use Polidog\Relayer\Http\Request;
 use Polidog\Relayer\Router\Component\PageContext;
@@ -22,10 +23,12 @@ use Polidog\UsePhp\Html\H;
 return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $query = \trim((string) ($req->query('q') ?? ''));
 
-    $ctx->metadata([
-        'title' => ('' !== $query ? $query . ' の検索結果' : '検索') . ' — Relayer Docs',
-        'description' => 'Relayer ドキュメントの全文検索。',
-    ]);
+    $ctx->metadata(Meta::forPage(
+        ('' !== $query ? $query . ' の検索結果' : '検索') . ' — Relayer Docs',
+        'Relayer ドキュメントの全文検索。',
+        '' !== $query ? '/search?q=' . \rawurlencode($query) : '/search',
+        'home',
+    ));
 
     // Time-based (PageCache::TTL). The ETag binds query + corpus
     // digest, so a post-expiry revalidation of the same query against
