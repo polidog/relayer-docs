@@ -1,0 +1,68 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Components\Shell;
+use App\Docs\DocStore;
+use App\Docs\When;
+use App\Meta;
+use App\PageCache;
+use Polidog\Relayer\Router\Component\PageContext;
+use Polidog\UsePhp\Html\H;
+
+// Component resolved at runtime via the compiled component manifest.
+// @psx-runtime App\Components\Shell
+
+/**
+ * Site-wide changelog: every page's content changes, newest first,
+ * fed by App\Docs\DocStore::recentRevisions(). Function-style,
+ * two-level: the factory sets metadata + cache, the closure renders.
+ */
+return function (PageContext $ctx, DocStore $store): Closure {
+    $ctx->metadata(Meta::forPage(
+        '更新履歴 — Relayer Docs',
+        'Relayer ドキュメントの全記事の更新履歴。',
+        '/changelog',
+        'home',
+    ));
+
+    // Same time-based policy as the corpus pages. corpusTag() changes
+    // iff some page's content changed — which is exactly when a new
+    // revision is recorded — so a post-expiry revalidation is a 304
+    // until the changelog actually has something new.
+    $ctx->cache(PageCache::timed('changelog-' . $store->corpusTag()));
+
+    return function () use ($store) {
+        $revs = $store->recentRevisions(200);
+
+        return (
+            <Shell store={$store} active={null}>
+                <section className="py-2">
+                    <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-white">更新履歴</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
+                        全記事の変更を新しい順に表示しています。
+                    </p>
+
+                    {[] === $revs ? (
+                        <p className="text-slate-500 dark:text-slate-400">まだ履歴がありません。</p>
+                    ) : (
+                        <ul className="list-none m-0 p-0 border-l border-slate-200 dark:border-slate-800">
+                            {array_map(fn ($r) => (
+                                <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-2 border-b border-slate-100 dark:border-slate-800/60">
+                                    <time className="tabular-nums text-sm text-slate-400 dark:text-slate-500 w-[88px]">{When::date($r->recordedAt)}</time>
+                                    <a
+                                        href={'/docs/' . $r->slug}
+                                        className="font-medium text-slate-800 dark:text-slate-200 hover:text-yellow-600 dark:hover:text-yellow-300 no-underline"
+                                    >{$r->title}</a>
+                                    {'' !== $r->category ? (
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">{$r->category}</span>
+                                    ) : null}
+                                </li>
+                            ), $revs)}
+                        </ul>
+                    )}
+                </section>
+            </Shell>
+        );
+    };
+};
