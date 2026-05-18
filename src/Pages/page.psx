@@ -46,29 +46,11 @@ return function (PageContext $ctx, DocStore $store): Closure {
                     キャッシュ・DB をひとつの boot エントリにまとめた、
                     規約重視の PHP フルスタックフレームワーク。
                 </p>
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <div>
                     <a
                         href="/docs/getting-started"
                         className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-yellow-300 hover:bg-yellow-400 text-slate-900 no-underline"
                     >はじめる →</a>
-                    <a
-                        href="/docs/getting-started"
-                        className="text-sm text-slate-600 dark:text-slate-300 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
-                    >はじめに</a>
-                    <a
-                        href="/docs/usephp"
-                        className="text-sm text-slate-600 dark:text-slate-300 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
-                    >usePHP</a>
-                    <a
-                        href="/docs/deployment"
-                        className="text-sm text-slate-600 dark:text-slate-300 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
-                    >デプロイ</a>
-                    <a
-                        href="https://github.com/polidog/relayer"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-slate-500 dark:text-slate-400 hover:text-yellow-700 dark:hover:text-yellow-300 no-underline"
-                    >GitHub ↗</a>
                 </div>
             </section>
 
