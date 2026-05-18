@@ -22,11 +22,23 @@
 FROM dunglas/frankenphp:php8.5
 
 # The official php base (shared with FrankenPHP) already bundles
-# mbstring/opcache/ctype/curl/openssl/json/tokenizer. Only unzip
-# (composer dist extraction) is added.
+# mbstring/opcache/ctype/curl/openssl/json/tokenizer. Added here:
+# unzip (composer dist extraction) and ext-gd built with FreeType,
+# which the OG card route needs (App\Og\OgImage → imagettftext). The
+# -dev headers are for the build; docker-php-ext-install pulls their
+# runtime shared libs in as dependencies, so they persist for the
+# extension at runtime. The CJK font is vendored in the repo
+# (assets/fonts/ipaexg.ttf), copied with the tree below — no font
+# package needed, and the rendered card is byte-identical to local.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends unzip; \
+    apt-get install -y --no-install-recommends \
+        unzip \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
+        libpng-dev; \
+    docker-php-ext-configure gd --with-freetype; \
+    docker-php-ext-install -j"$(nproc)" gd; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

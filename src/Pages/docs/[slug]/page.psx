@@ -6,6 +6,7 @@ use App\Components\Shell;
 use App\Docs\DocStore;
 use App\Docs\Markdown;
 use App\Docs\Nav;
+use App\Meta;
 use App\PageCache;
 use Polidog\Relayer\Http\Cache;
 use Polidog\Relayer\Router\Component\PageContext;
@@ -27,7 +28,12 @@ return function (PageContext $ctx, DocStore $store): Closure {
     if (null === $doc) {
         \http_response_code(404);
         $ctx->cache(new Cache(noStore: true));
-        $ctx->metadata(['title' => 'ページが見つかりません — Relayer Docs']);
+        $ctx->metadata(Meta::forPage(
+            'ページが見つかりません — Relayer Docs',
+            'お探しのドキュメントは見つかりませんでした。',
+            '/docs/' . $slug,
+            'home',
+        ));
 
         return fn () => (
             <Shell store={$store} active={null}>
@@ -43,10 +49,7 @@ return function (PageContext $ctx, DocStore $store): Closure {
         );
     }
 
-    $ctx->metadata([
-        'title' => $doc->title . ' — Relayer Docs',
-        'description' => $doc->description,
-    ]);
+    $ctx->metadata(Meta::forDoc($doc));
 
     // Syntax highlighting: load highlight.js only here (the sole route
     // with `<pre><code>` blocks), not globally. Emitted at end of <body>
