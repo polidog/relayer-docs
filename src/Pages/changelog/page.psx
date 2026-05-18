@@ -57,6 +57,9 @@ return function (PageContext $ctx, DocStore $store): Closure {
                                     {'' !== $r->category ? (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">{$r->category}</span>
                                     ) : null}
+                                    {'' !== $r->summary ? (
+                                        <span className="w-full text-sm text-slate-500 dark:text-slate-400">{$r->summary}</span>
+                                    ) : null}
                                 </li>
                             ), $revs)}
                         </ul>

@@ -11,12 +11,13 @@ namespace App\Docs;
  * one). Newest first by `id`; the oldest row for a slug is its
  * original creation.
  *
- * The full body is captured so a future "view this version" / diff
- * can be added without a schema change. List views
+ * {@see summary} is what changed (the editor's `--note`, or a
+ * diff-derived fallback) — shown in every list view. The full body is
+ * still captured so a future "view this version" / diff needs no
+ * schema change. List views
  * ({@see DocStore::revisions()} / {@see DocStore::recentRevisions()})
- * leave {@see content} empty on purpose — they only show date + title
- * and a per-row body would be needless weight; fetch a single
- * revision by id when the body is actually needed.
+ * leave {@see content} empty on purpose — a per-row body would be
+ * needless weight; fetch a single revision by id when it is needed.
  */
 final readonly class DocRevision
 {
@@ -27,6 +28,7 @@ final readonly class DocRevision
         public string $category,
         public string $content,
         public string $hash,
+        public string $summary,
         public string $recordedAt,
     ) {}
 
@@ -42,6 +44,7 @@ final readonly class DocRevision
             category: (string) ($row['category'] ?? ''),
             content: (string) ($row['content'] ?? ''),
             hash: (string) ($row['hash'] ?? ''),
+            summary: (string) ($row['summary'] ?? ''),
             recordedAt: (string) ($row['recorded_at'] ?? ''),
         );
     }

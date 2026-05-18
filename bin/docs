@@ -18,7 +18,8 @@ declare(strict_types=1);
  *   bin/docs export <dir>            write every article as <slug>.md
  *   bin/docs import <file.md>...     upsert from front-matter Markdown
  *
- * new/edit accept `--file <path>` (`-` = stdin) for non-interactive use.
+ * new/edit accept `--file <path>` (`-` = stdin) for non-interactive use
+ * and `--note <text>` to record what changed (auto-derived if omitted).
  *
  * Backend (App\Docs\DocStoreFactory):
  *   TURSO_DATABASE_URL set  -> Turso (remote)   otherwise -> var/docs.db
@@ -230,7 +231,8 @@ switch ($command) {
     case 'edit':
         $store->migrate();
         $fileOpt = $takeOpt($rest, 'file');
-        $slug = $rest[0] ?? $fail("usage: bin/docs {$command} <slug> [--file <path>|-]");
+        $note = $takeOpt($rest, 'note');
+        $slug = $rest[0] ?? $fail("usage: bin/docs {$command} <slug> [--file <path>|-] [--note <text>]");
         $assertSlug($slug);
         $existing = $store->get($slug);
 
@@ -246,7 +248,7 @@ switch ($command) {
             : "---\ntitle: ''\ndescription: ''\ncategory: ''\norder: 0\n---\n\n# " . $slug . "\n";
 
         $doc = $deserialize($editBuffer($seed, $fileOpt), $slug);
-        $store->upsert($doc);
+        $store->upsert($doc, $note);
         echo ('new' === $command ? 'created' : 'updated') . ": {$slug} -> {$target}\n";
 
         break;
@@ -323,13 +325,14 @@ switch ($command) {
               bin/docs migrate               create the schema (idempotent)
               bin/docs list                  list articles
               bin/docs new  <slug>           create (opens \$EDITOR)
-              bin/docs edit <slug>           edit existing (opens \$EDITOR)
+              bin/docs edit <slug> [--note T] edit existing (opens \$EDITOR)
               bin/docs show <slug>           print the stored article
               bin/docs rm   <slug> [--force] delete
               bin/docs export <dir>          back up every article as <slug>.md
               bin/docs import <file.md>...   upsert from front-matter Markdown
 
-            new/edit: --file <path> (or - for stdin) for non-interactive use.
+            new/edit: --file <path> (or - for stdin) for non-interactive use;
+                      --note <text> records what changed (else auto from diff).
             backend: {$target}
               set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN for the remote store.
 

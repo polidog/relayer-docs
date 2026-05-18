@@ -59,6 +59,7 @@ final class DocStore
                 . " category TEXT NOT NULL DEFAULT '',"
                 . ' content TEXT NOT NULL,'
                 . ' hash TEXT NOT NULL,'
+                . " summary TEXT NOT NULL DEFAULT '',"
                 . ' recorded_at TEXT NOT NULL'
                 . ')',
                 [],
@@ -84,6 +85,26 @@ final class DocStore
                 [],
             ],
         ]);
+
+        // `summary` was added after document_revisions shipped, so a
+        // store migrated by an earlier build has the table but not the
+        // column (CREATE TABLE IF NOT EXISTS above is then a no-op).
+        // SQLite/libSQL has no ADD COLUMN IF NOT EXISTS, so probe
+        // table_info and add it once. Idempotent — migrate runs at the
+        // start of every CLI command.
+        $hasSummary = false;
+        foreach ($this->conn->query('PRAGMA table_info(document_revisions)') as $col) {
+            if ('summary' === ($col['name'] ?? null)) {
+                $hasSummary = true;
+
+                break;
+            }
+        }
+        if (!$hasSummary) {
+            $this->conn->execute(
+                "ALTER TABLE document_revisions ADD COLUMN summary TEXT NOT NULL DEFAULT ''",
+            );
+        }
     }
 
     /**
@@ -139,7 +160,7 @@ final class DocStore
     public function revisions(string $slug, int $limit = 50): array
     {
         return $this->readRevisions(
-            'SELECT id, slug, title, category, hash, recorded_at'
+            'SELECT id, slug, title, category, hash, summary, recorded_at'
             . ' FROM document_revisions WHERE slug = ?'
             . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 200)),
             [$slug],
@@ -155,7 +176,7 @@ final class DocStore
     public function recentRevisions(int $limit = 200): array
     {
         return $this->readRevisions(
-            'SELECT id, slug, title, category, hash, recorded_at'
+            'SELECT id, slug, title, category, hash, summary, recorded_at'
             . ' FROM document_revisions'
             . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 500)),
         );
@@ -188,9 +209,15 @@ final class DocStore
             // schema is provisioned by `bin/docs migrate` from a local
             // machine. If a web deploy briefly precedes that migrate,
             // degrade the *history widget* to empty rather than 500 the
-            // whole article. Anything that is not the missing table is
-            // a real fault and must still surface.
-            if (\str_contains($e->getMessage(), 'document_revisions')) {
+            // whole article. Same for the `summary` column, added after
+            // the table shipped: a deploy can briefly precede the
+            // migrate that ALTERs it in. Anything else is a real fault
+            // and must still surface.
+            $msg = $e->getMessage();
+            if (
+                \str_contains($msg, 'document_revisions')
+                || (\str_contains($msg, 'no such column') && \str_contains($msg, 'summary'))
+            ) {
                 return [];
             }
 
@@ -221,7 +248,14 @@ final class DocStore
         return \substr(\hash('sha256', (string) \json_encode($hashes)), 0, 24);
     }
 
-    public function upsert(DocRecord $doc): void
+    /**
+     * @param null|string $summary the editor's change note (`--note`).
+     *                              When null/blank a summary is derived
+     *                              from the diff against the previous
+     *                              revision, so history always says
+     *                              what changed.
+     */
+    public function upsert(DocRecord $doc, ?string $summary = null): void
     {
         // A new revision is recorded only when the content actually
         // changed (new page, or a different hash). `bin/docs edit`
@@ -230,10 +264,11 @@ final class DocStore
         // is fine outside the transaction: the only writer is the
         // single-process CLI.
         $prev = $this->conn->query(
-            'SELECT hash FROM documents WHERE slug = ? LIMIT 1',
+            'SELECT hash, content FROM documents WHERE slug = ? LIMIT 1',
             [$doc->slug],
         );
-        $changed = [] === $prev || (string) ($prev[0]['hash'] ?? '') !== $doc->hash;
+        $isNew = [] === $prev;
+        $changed = $isNew || (string) ($prev[0]['hash'] ?? '') !== $doc->hash;
 
         $ops = [
             [
@@ -258,21 +293,96 @@ final class DocStore
         ];
 
         if ($changed) {
+            $note = null === $summary ? '' : \trim($summary);
+            if ('' === $note) {
+                $note = self::summarize(
+                    $isNew,
+                    (string) ($prev[0]['content'] ?? ''),
+                    $doc->content,
+                );
+            } else {
+                $note = \mb_substr($note, 0, 200);
+            }
+
             // Same transaction as the row + FTS write, mirroring the
             // store's invariant: history, content and search index can
             // never disagree about what was published.
             $ops[] = [
                 'INSERT INTO document_revisions'
-                . ' (slug, title, description, category, content, hash, recorded_at)'
-                . ' VALUES (?, ?, ?, ?, ?, ?, ?)',
+                . ' (slug, title, description, category, content, hash, summary, recorded_at)'
+                . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $doc->slug, $doc->title, $doc->description, $doc->category,
-                    $doc->content, $doc->hash, $doc->updatedAt,
+                    $doc->content, $doc->hash, $note, $doc->updatedAt,
                 ],
             ];
         }
 
         $this->conn->transactional($ops);
+    }
+
+    /**
+     * Derive a one-line Japanese change note from the diff vs the
+     * previous content: which Markdown sections were added/removed,
+     * plus a non-blank line delta. The fallback when the editor gives
+     * no `--note`, so an entry never just says "更新".
+     */
+    private static function summarize(bool $isNew, string $prev, string $new): string
+    {
+        if ($isNew) {
+            return '新規作成';
+        }
+
+        $headings = static function (string $md): array {
+            $out = [];
+            foreach (\explode("\n", $md) as $line) {
+                if (\preg_match('/^#{1,6}\s+(.+?)\s*$/', $line, $m)) {
+                    $out[\trim($m[1])] = true;
+                }
+            }
+
+            return $out;
+        };
+        $prevH = $headings($prev);
+        $newH = $headings($new);
+        $added = \array_keys(\array_diff_key($newH, $prevH));
+        $removed = \array_keys(\array_diff_key($prevH, $newH));
+
+        $list = static function (array $names): string {
+            $shown = \array_slice($names, 0, 2);
+            $s = \implode('', \array_map(static fn (string $n): string => '「' . $n . '」', $shown));
+
+            return \count($names) > 2 ? $s . '他' . (\count($names) - 2) . '件' : $s;
+        };
+
+        $lines = static fn (string $md): array => \array_values(\array_filter(
+            \explode("\n", $md),
+            static fn (string $l): bool => '' !== \trim($l),
+        ));
+        $pc = \array_count_values($lines($prev));
+        $nc = \array_count_values($lines($new));
+        $plus = 0;
+        $minus = 0;
+        foreach ($nc as $l => $c) {
+            $plus += \max(0, $c - ($pc[$l] ?? 0));
+        }
+        foreach ($pc as $l => $c) {
+            $minus += \max(0, $c - ($nc[$l] ?? 0));
+        }
+        $delta = ($plus + $minus) > 0 ? ' (+' . $plus . ' −' . $minus . ')' : '';
+
+        $parts = [];
+        if ([] !== $added) {
+            $parts[] = $list($added) . 'を追加';
+        }
+        if ([] !== $removed) {
+            $parts[] = $list($removed) . 'を削除';
+        }
+        if ([] === $parts) {
+            $parts[] = ($plus + $minus) > 0 ? '本文を更新' : 'メタ情報を更新';
+        }
+
+        return \mb_substr(\implode('・', $parts) . $delta, 0, 120);
     }
 
     public function delete(string $slug): void
