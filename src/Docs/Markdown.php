@@ -171,7 +171,7 @@ final class Markdown
                 $para[] = \trim($lines[$i]);
                 ++$i;
             }
-            $blocks[] = H::p(children: $this->inline(\implode("\n", $para)));
+            $blocks[] = H::p(children: $this->inline($this->joinParagraph($para)));
         }
 
         return $blocks;
@@ -415,6 +415,43 @@ final class Markdown
         }
 
         return $flat;
+    }
+
+    /**
+     * Join the hard-wrapped source lines of one paragraph into a single
+     * logical line.
+     *
+     * A newline in the Markdown source is authoring wrap, not a hard
+     * break: CommonMark treats a single newline as a *soft* break, so it
+     * must NOT become a <br>. Emitting <br> per source line froze every
+     * paragraph at the source's ~60-column wrap and made Japanese text
+     * break mid-sentence regardless of viewport width.
+     *
+     * Latin text needs a space where the wrap was (words would fuse
+     * otherwise); between two CJK characters that space is itself
+     * spurious, so there the lines are concatenated directly. This is
+     * the same rule as GitHub / pandoc's east_asian_line_breaks.
+     *
+     * @param list<string> $para
+     */
+    private function joinParagraph(array $para): string
+    {
+        $text = $para[0] ?? '';
+        // CJK punctuation, Hiragana, Katakana (+ phonetic ext), CJK
+        // Ext A / Unified / Compatibility, Half/Fullwidth forms, Ext B+.
+        $cjk = '\x{3000}-\x{303F}\x{3040}-\x{30FF}\x{31F0}-\x{31FF}'
+            . '\x{3400}-\x{4DBF}\x{4E00}-\x{9FFF}\x{F900}-\x{FAFF}'
+            . '\x{FF00}-\x{FFEF}\x{20000}-\x{2FA1F}';
+        $count = \count($para);
+        for ($k = 1; $k < $count; ++$k) {
+            $prevChar = \mb_substr($para[$k - 1], -1);
+            $nextChar = \mb_substr($para[$k], 0, 1);
+            $bothCjk = 1 === \preg_match('/[' . $cjk . ']/u', $prevChar)
+                && 1 === \preg_match('/[' . $cjk . ']/u', $nextChar);
+            $text .= ($bothCjk ? '' : ' ') . $para[$k];
+        }
+
+        return $text;
     }
 
     /**
