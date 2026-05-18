@@ -26,7 +26,6 @@ final class RootLayout extends LayoutComponent
                         <span>Relayer</span>
                     </a>
                     <nav className="flex items-center gap-4 text-sm">
-                        <a href="/" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white no-underline">ホーム</a>
                         <a href="/changelog" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white no-underline">更新履歴</a>
                         <a
                             href="https://github.com/polidog/relayer"
