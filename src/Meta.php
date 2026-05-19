@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App;
 
 use App\Docs\DocRecord;
+use App\I18n;
 
 /**
  * Builds the per-page metadata map passed to `$ctx->metadata()`.
@@ -28,13 +29,14 @@ final class Meta
     /**
      * @return array<string, string> for `$ctx->metadata()`
      */
-    public static function forDoc(DocRecord $doc): array
+    public static function forDoc(DocRecord $doc, string $locale = I18n::DEFAULT): array
     {
         return self::build(
             $doc->title . self::SUFFIX,
             $doc->description,
             '/docs/' . $doc->slug,
             $doc->slug,
+            $locale,
         );
     }
 
@@ -46,8 +48,9 @@ final class Meta
         string $description,
         string $path,
         string $ogSlug = 'home',
+        string $locale = I18n::DEFAULT,
     ): array {
-        return self::build($title, $description, $path, $ogSlug);
+        return self::build($title, $description, $path, $ogSlug, $locale);
     }
 
     /**
@@ -58,8 +61,12 @@ final class Meta
         string $description,
         string $path,
         string $ogSlug,
+        string $locale,
     ): array {
-        $url = SiteUrl::abs($path);
+        // The canonical/og:url is the locale's own URL (ja unprefixed,
+        // en under /en) so each language self-canonicalizes. The OG
+        // card image stays slug-keyed and locale-agnostic.
+        $url = SiteUrl::abs(I18n::path($locale, $path));
         $image = SiteUrl::abs('/og/' . $ogSlug);
 
         return [
@@ -69,6 +76,7 @@ final class Meta
             'og:description' => $description,
             'og:url' => $url,
             'og:image' => $image,
+            'og:locale' => I18n::ogLocale($locale),
             'twitter:title' => $title,
             'twitter:description' => $description,
             'twitter:image' => $image,

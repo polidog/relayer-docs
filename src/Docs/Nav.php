@@ -17,9 +17,9 @@ final class Nav
      *
      * @return list<DocRecord>
      */
-    public static function flat(DocStore $store): array
+    public static function flat(DocStore $store, string $locale = 'ja'): array
     {
-        return $store->nav();
+        return $store->nav($locale);
     }
 
     /**
@@ -27,10 +27,10 @@ final class Nav
      *
      * @return list<array{category: string, docs: list<DocRecord>}>
      */
-    public static function groups(DocStore $store): array
+    public static function groups(DocStore $store, string $locale = 'ja'): array
     {
         $byCat = [];
-        foreach ($store->nav() as $doc) {
+        foreach ($store->nav($locale) as $doc) {
             $key = '' === $doc->category ? 'ドキュメント' : $doc->category;
             $byCat[$key][] = $doc;
         }

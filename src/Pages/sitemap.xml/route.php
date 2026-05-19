@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Docs\DocStore;
+use App\I18n;
 use App\PageCache;
 use App\SiteUrl;
 use Polidog\Relayer\Http\CachePolicy;
@@ -34,8 +35,11 @@ use Polidog\Relayer\Http\Response;
 return [
     'GET' => function (DocStore $store): Response {
         $base = SiteUrl::base();
+        // Both language corpora drive the body, so the ETag must bust
+        // when either changes. corpusTag('ja') is the pre-i18n digest.
         $cache = PageCache::timed(
-            'sitemap-' . \substr(\sha1($base), 0, 8) . '-' . $store->corpusTag(),
+            'sitemap-' . \substr(\sha1($base), 0, 8)
+            . '-' . $store->corpusTag('ja') . '-' . $store->corpusTag('en'),
         );
         CachePolicy::emit($cache);
         if (CachePolicy::isNotModified($cache)) {
@@ -78,17 +82,22 @@ return [
         }
         $corpusDate = $day($latest);
 
-        $urls = [
-            $url($base . '/', $corpusDate, 'weekly', '1.0'),
-            $url($base . '/changelog', $corpusDate, 'weekly', '0.5'),
-        ];
-        foreach ($docs as $d) {
-            $urls[] = $url(
-                $base . '/docs/' . $d->slug,
-                $day($d->updatedAt),
-                'monthly',
-                '0.8',
-            );
+        // Every URL is emitted once per locale: ja unprefixed (the
+        // canonical, pre-i18n URLs unchanged) and en under /en. en docs
+        // fall back to the canonical body when untranslated, but the
+        // URL is still indexable, so list it regardless.
+        $urls = [];
+        foreach (I18n::SUPPORTED as $loc) {
+            $urls[] = $url($base . I18n::path($loc, '/'), $corpusDate, 'weekly', '1.0');
+            $urls[] = $url($base . I18n::path($loc, '/changelog'), $corpusDate, 'weekly', '0.5');
+            foreach ($docs as $d) {
+                $urls[] = $url(
+                    $base . I18n::path($loc, '/docs/' . $d->slug),
+                    $day($d->updatedAt),
+                    'monthly',
+                    '0.8',
+                );
+            }
         }
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
