@@ -66,6 +66,7 @@ final class I18n
             'はじめに' => 'Getting Started',
             'ルーティング' => 'Routing',
             '機能' => 'Features',
+            '開発' => 'Development',
             '運用' => 'Operations',
             'ドキュメント' => 'Documentation',
         ],
