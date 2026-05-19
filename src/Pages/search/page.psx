@@ -34,18 +34,25 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
         $locale,
     ));
 
-    // Time-based (PageCache::TTL). The ETag binds query + locale +
-    // corpus digest, so a post-expiry revalidation of the same query
-    // against an unchanged corpus is a 304 and the search (in the
-    // render closure) is never run. ja's corpusTag is the pre-i18n
-    // digest; the locale is folded into the sha so ja/en never collide.
-    $ctx->cache(PageCache::timed('search-' . \sha1($locale . '|' . $query . '|' . $store->corpusTag($locale))));
+    // Time-based (PageCache::TTL). The ETag binds query + corpus
+    // digest, so a post-expiry revalidation of the same query against
+    // an unchanged corpus is a 304 and the search (in the render
+    // closure) is never run. The ja sha input is byte-identical to the
+    // pre-i18n key (corpusTag('ja') is unchanged), so the canonical
+    // search ETag never moved; only a non-default locale folds its
+    // code in, keeping the two corpora on separate cache entries.
+    $digest = I18n::DEFAULT === $locale
+        ? \sha1($query . '|' . $store->corpusTag($locale))
+        : \sha1($locale . '|' . $query . '|' . $store->corpusTag($locale));
+    $ctx->cache(PageCache::timed('search-' . $digest));
 
-    return function () use ($store, $query, $locale, $en) {
+    $switchPath = '/search' . ('' !== $query ? '?q=' . \rawurlencode($query) : '');
+
+    return function () use ($store, $query, $locale, $en, $switchPath) {
         $hits = '' !== $query ? $store->search($query, 30, $locale) : [];
 
         return (
-        <Shell store={$store} active={null} locale={$locale} path={'/search'}>
+        <Shell store={$store} active={null} locale={$locale} path={$switchPath}>
             <section>
                 <h1 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">{$en ? 'Search the docs' : 'ドキュメント検索'}</h1>
                 <SearchForm query={$query} large={true} locale={$locale} />
