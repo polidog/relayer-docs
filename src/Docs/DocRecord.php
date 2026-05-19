@@ -8,6 +8,13 @@ namespace App\Docs;
  * One documentation page: the Markdown body plus the metadata parsed
  * from its front matter. This is the single shape that flows from the
  * CLI (local Markdown) into the store and back out to the web pages.
+ *
+ * `locale` is the locale this record was actually served in. The
+ * canonical Japanese rows in `documents` are `'ja'`; a translation
+ * read from `document_translations` carries its own locale. When a
+ * caller asks for `en` but no translation exists the store returns the
+ * `ja` record, so `locale !== requested` is exactly the "untranslated,
+ * showing the original" signal the views surface.
  */
 final readonly class DocRecord
 {
@@ -20,6 +27,7 @@ final readonly class DocRecord
         public string $content,
         public string $hash,
         public string $updatedAt,
+        public string $locale = 'ja',
     ) {}
 
     /**
@@ -38,7 +46,10 @@ final readonly class DocRecord
     }
 
     /**
-     * @param array<string, mixed> $row a row from the `documents` table
+     * @param array<string, mixed> $row a row from `documents` (no
+     *                                  `locale` column → defaults to
+     *                                  `'ja'`) or a `document_translations`
+     *                                  JOIN (carries its own `locale`)
      */
     public static function fromRow(array $row): self
     {
@@ -51,6 +62,7 @@ final readonly class DocRecord
             content: (string) ($row['content'] ?? ''),
             hash: (string) ($row['hash'] ?? ''),
             updatedAt: (string) ($row['updated_at'] ?? ''),
+            locale: '' !== (string) ($row['locale'] ?? '') ? (string) $row['locale'] : 'ja',
         );
     }
 }

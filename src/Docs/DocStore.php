@@ -69,6 +69,35 @@ final class DocStore
                 . ' ON document_revisions (slug, id)',
                 [],
             ],
+            // Translations overlay. `documents` stays the canonical
+            // Japanese page (untouched — the existing reader path and
+            // its ETag are byte-identical); a non-`ja` rendering reads
+            // its title/description/content from here and falls back to
+            // the `documents` row when a translation is absent. Purely
+            // additive, same idempotent risk class as document_revisions
+            // above. Structural metadata (category, position) is shared
+            // across locales and lives only in `documents`, joined in on
+            // read — so the sidebar order can never diverge per locale.
+            [
+                'CREATE TABLE IF NOT EXISTS document_translations ('
+                . ' slug TEXT NOT NULL,'
+                . ' locale TEXT NOT NULL,'
+                . ' title TEXT NOT NULL,'
+                . " description TEXT NOT NULL DEFAULT '',"
+                . ' content TEXT NOT NULL,'
+                . ' hash TEXT NOT NULL,'
+                . ' updated_at TEXT NOT NULL,'
+                . ' PRIMARY KEY (slug, locale)'
+                . ')',
+                [],
+            ],
+            [
+                'CREATE VIRTUAL TABLE IF NOT EXISTS document_translations_fts USING fts5('
+                . " slug UNINDEXED, locale UNINDEXED, title, description, content,"
+                . " tokenize='trigram'"
+                . ')',
+                [],
+            ],
             // Backfill: give every existing page one revision (its
             // current state) so history is never empty for docs that
             // predate this table. Idempotent — only slugs with no
@@ -112,18 +141,64 @@ final class DocStore
      *
      * @return array<string, string>
      */
-    public function hashes(): array
+    public function hashes(string $locale = 'ja'): array
     {
         $map = [];
-        foreach ($this->conn->query('SELECT slug, hash FROM documents') as $row) {
+        if ('ja' === $locale) {
+            foreach ($this->conn->query('SELECT slug, hash FROM documents') as $row) {
+                $map[(string) $row['slug']] = (string) $row['hash'];
+            }
+
+            return $map;
+        }
+
+        // Per slug: the translation's hash when one exists, otherwise
+        // the canonical hash (that page renders as a ja fallback in
+        // this locale). So a locale's corpus tag flips on a translation
+        // edit *and* on a ja edit of a still-untranslated page — the
+        // home/search ETag for that locale stays exactly correct.
+        foreach (
+            $this->conn->query(
+                'SELECT d.slug, COALESCE(t.hash, d.hash) AS hash'
+                . ' FROM documents d'
+                . ' LEFT JOIN document_translations t'
+                . ' ON t.slug = d.slug AND t.locale = ?',
+                [$locale],
+            ) as $row
+        ) {
             $map[(string) $row['slug']] = (string) $row['hash'];
         }
 
         return $map;
     }
 
-    public function get(string $slug): ?DocRecord
+    /**
+     * One page in the requested locale. `ja` (or any unknown locale)
+     * reads the canonical `documents` row — byte-identical to the
+     * pre-i18n query so the reader path and its ETag never moved. A
+     * non-`ja` locale reads the `document_translations` overlay
+     * (joined to `documents` for the shared category/position); when
+     * no translation exists it transparently falls back to the
+     * canonical `ja` record. The returned record's `locale` is the one
+     * actually served, so a caller that asked for `en` and got back
+     * `locale === 'ja'` knows to show the "untranslated" notice.
+     */
+    public function get(string $slug, string $locale = 'ja'): ?DocRecord
     {
+        if ('ja' !== $locale) {
+            $rows = $this->conn->query(
+                'SELECT t.slug, t.title, t.description, d.category, d.position,'
+                . ' t.content, t.hash, t.updated_at, t.locale'
+                . ' FROM document_translations t'
+                . ' JOIN documents d ON d.slug = t.slug'
+                . ' WHERE t.slug = ? AND t.locale = ? LIMIT 1',
+                [$slug, $locale],
+            );
+            if ([] !== $rows) {
+                return DocRecord::fromRow($rows[0]);
+            }
+        }
+
         $rows = $this->conn->query(
             'SELECT slug, title, description, category, position, content, hash, updated_at'
             . ' FROM documents WHERE slug = ? LIMIT 1',
@@ -134,17 +209,59 @@ final class DocStore
     }
 
     /**
+     * Slugs that have a stored translation for $locale — the
+     * translation-coverage set the CLI's `list` reports against.
+     *
+     * @return array<string, true>
+     */
+    public function translatedSlugs(string $locale): array
+    {
+        $map = [];
+        foreach (
+            $this->conn->query(
+                'SELECT slug FROM document_translations WHERE locale = ?',
+                [$locale],
+            ) as $row
+        ) {
+            $map[(string) $row['slug']] = true;
+        }
+
+        return $map;
+    }
+
+    /**
      * Every page's metadata, ordered for the sidebar (category, then
      * position, then title). Content is omitted — the nav doesn't need
      * it and pages can be large.
      *
      * @return list<DocRecord>
      */
-    public function nav(): array
+    public function nav(string $locale = 'ja'): array
     {
+        if ('ja' === $locale) {
+            $rows = $this->conn->query(
+                'SELECT slug, title, description, category, position, updated_at'
+                . ' FROM documents ORDER BY position, title',
+            );
+
+            return \array_map(DocRecord::fromRow(...), $rows);
+        }
+
+        // Order and grouping stay structural (always from `documents`)
+        // so the sidebar is identical across locales; only the visible
+        // title/description are overlaid, COALESCE-ing back to the
+        // canonical text for pages without a translation yet.
         $rows = $this->conn->query(
-            'SELECT slug, title, description, category, position, updated_at'
-            . ' FROM documents ORDER BY position, title',
+            'SELECT d.slug,'
+            . ' COALESCE(t.title, d.title) AS title,'
+            . ' COALESCE(t.description, d.description) AS description,'
+            . ' d.category, d.position, d.updated_at,'
+            . ' CASE WHEN t.slug IS NULL THEN ? ELSE ? END AS locale'
+            . ' FROM documents d'
+            . ' LEFT JOIN document_translations t'
+            . ' ON t.slug = d.slug AND t.locale = ?'
+            . ' ORDER BY d.position, title',
+            ['ja', $locale, $locale],
         );
 
         return \array_map(DocRecord::fromRow(...), $rows);
@@ -240,12 +357,16 @@ final class DocStore
      * changes when a `bin/docs sync` actually changes some page, so
      * those pages stay 304-cacheable until content moves.
      */
-    public function corpusTag(): string
+    public function corpusTag(string $locale = 'ja'): string
     {
-        $hashes = $this->hashes();
+        $hashes = $this->hashes($locale);
         \ksort($hashes);
 
-        return \substr(\hash('sha256', (string) \json_encode($hashes)), 0, 24);
+        return \substr(
+            \hash('sha256', $locale . "\0" . (string) \json_encode($hashes)),
+            0,
+            24,
+        );
     }
 
     /**
@@ -255,8 +376,14 @@ final class DocStore
      *                              revision, so history always says
      *                              what changed.
      */
-    public function upsert(DocRecord $doc, ?string $summary = null): void
+    public function upsert(DocRecord $doc, ?string $summary = null, string $locale = 'ja'): void
     {
+        if ('ja' !== $locale) {
+            $this->upsertTranslation($doc, $locale);
+
+            return;
+        }
+
         // A new revision is recorded only when the content actually
         // changed (new page, or a different hash). `bin/docs edit`
         // always bumps `updated_at` even on a no-op save, so keying the
@@ -319,6 +446,44 @@ final class DocStore
         }
 
         $this->conn->transactional($ops);
+    }
+
+    /**
+     * Write one locale's overlay for a page. The canonical `documents`
+     * row, its FTS mirror and its revision history are never touched —
+     * `category`/`position` come from there on read, so a translation
+     * carries only the locale-varying text. The translation FTS mirror
+     * is rebuilt in the same transaction as the row, the same
+     * invariant the canonical path keeps. Translations have no separate
+     * revision history in this iteration; the canonical page's history
+     * remains the page's history.
+     */
+    private function upsertTranslation(DocRecord $doc, string $locale): void
+    {
+        $this->conn->transactional([
+            [
+                'INSERT INTO document_translations'
+                . ' (slug, locale, title, description, content, hash, updated_at)'
+                . ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+                . ' ON CONFLICT(slug, locale) DO UPDATE SET'
+                . ' title = excluded.title, description = excluded.description,'
+                . ' content = excluded.content, hash = excluded.hash,'
+                . ' updated_at = excluded.updated_at',
+                [
+                    $doc->slug, $locale, $doc->title, $doc->description,
+                    $doc->content, $doc->hash, $doc->updatedAt,
+                ],
+            ],
+            [
+                'DELETE FROM document_translations_fts WHERE slug = ? AND locale = ?',
+                [$doc->slug, $locale],
+            ],
+            [
+                'INSERT INTO document_translations_fts'
+                . ' (slug, locale, title, description, content) VALUES (?, ?, ?, ?, ?)',
+                [$doc->slug, $locale, $doc->title, $doc->description, $doc->content],
+            ],
+        ]);
     }
 
     /**
@@ -385,11 +550,36 @@ final class DocStore
         return \mb_substr(\implode('・', $parts) . $delta, 0, 120);
     }
 
-    public function delete(string $slug): void
+    /**
+     * Delete a page or just one of its translations. A non-`ja`
+     * `$locale` removes only that overlay (the canonical page and
+     * every other locale stay). `null` or `'ja'` removes the whole
+     * page — the canonical row, its FTS, and *all* translations with
+     * their FTS, since a translation cannot exist without its base
+     * (the read path JOINs them).
+     */
+    public function delete(string $slug, ?string $locale = null): void
     {
+        if (null !== $locale && 'ja' !== $locale) {
+            $this->conn->transactional([
+                [
+                    'DELETE FROM document_translations WHERE slug = ? AND locale = ?',
+                    [$slug, $locale],
+                ],
+                [
+                    'DELETE FROM document_translations_fts WHERE slug = ? AND locale = ?',
+                    [$slug, $locale],
+                ],
+            ]);
+
+            return;
+        }
+
         $this->conn->transactional([
             ['DELETE FROM documents WHERE slug = ?', [$slug]],
             ['DELETE FROM documents_fts WHERE slug = ?', [$slug]],
+            ['DELETE FROM document_translations WHERE slug = ?', [$slug]],
+            ['DELETE FROM document_translations_fts WHERE slug = ?', [$slug]],
         ]);
     }
 
@@ -423,7 +613,7 @@ final class DocStore
      *
      * @return list<SearchHit>
      */
-    public function search(string $query, int $limit = 20): array
+    public function search(string $query, int $limit = 20, string $locale = 'ja'): array
     {
         $query = \trim($query);
         if ('' === $query) {
@@ -440,25 +630,39 @@ final class DocStore
         }
 
         if ([] !== $ftsTerms) {
-            $hits = $this->searchFts(\implode(' ', $ftsTerms), $limit);
+            $hits = $this->searchFts(\implode(' ', $ftsTerms), $limit, $locale);
             if ([] !== $hits) {
                 return $hits;
             }
         }
 
-        return $this->searchLike($query, $limit);
+        return $this->searchLike($query, $limit, $locale);
     }
 
     /**
      * @return list<SearchHit>
      */
-    private function searchFts(string $match, int $limit): array
+    private function searchFts(string $match, int $limit, string $locale = 'ja'): array
     {
-        $sql = 'SELECT slug, title, description,'
-            . ' snippet(documents_fts, 3, ?, ?, ?, 32) AS snippet'
-            . ' FROM documents_fts WHERE documents_fts MATCH ? ORDER BY rank LIMIT ' . $limit;
-
-        $rows = $this->conn->query($sql, [self::MARK_OPEN, self::MARK_CLOSE, '…', $match]);
+        if ('ja' === $locale) {
+            $sql = 'SELECT slug, title, description,'
+                . ' snippet(documents_fts, 3, ?, ?, ?, 32) AS snippet'
+                . ' FROM documents_fts WHERE documents_fts MATCH ? ORDER BY rank LIMIT ' . $limit;
+            $rows = $this->conn->query($sql, [self::MARK_OPEN, self::MARK_CLOSE, '…', $match]);
+        } else {
+            // `content` is the 5th fts column here (slug, locale,
+            // title, description, content), vs the 4th in documents_fts.
+            // `locale` is UNINDEXED so it filters as a plain column.
+            $sql = 'SELECT slug, title, description,'
+                . ' snippet(document_translations_fts, 4, ?, ?, ?, 32) AS snippet'
+                . ' FROM document_translations_fts'
+                . ' WHERE document_translations_fts MATCH ? AND locale = ?'
+                . ' ORDER BY rank LIMIT ' . $limit;
+            $rows = $this->conn->query(
+                $sql,
+                [self::MARK_OPEN, self::MARK_CLOSE, '…', $match, $locale],
+            );
+        }
 
         $hits = [];
         foreach ($rows as $row) {
@@ -479,14 +683,23 @@ final class DocStore
     /**
      * @return list<SearchHit>
      */
-    private function searchLike(string $query, int $limit): array
+    private function searchLike(string $query, int $limit, string $locale = 'ja'): array
     {
         $like = '%' . \str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query) . '%';
-        $sql = 'SELECT slug, title, description, category, content FROM documents'
-            . " WHERE title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"
-            . " OR content LIKE ? ESCAPE '\\' ORDER BY position, title LIMIT " . $limit;
-
-        $rows = $this->conn->query($sql, [$like, $like, $like]);
+        if ('ja' === $locale) {
+            $sql = 'SELECT slug, title, description, category, content FROM documents'
+                . " WHERE title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"
+                . " OR content LIKE ? ESCAPE '\\' ORDER BY position, title LIMIT " . $limit;
+            $rows = $this->conn->query($sql, [$like, $like, $like]);
+        } else {
+            $sql = 'SELECT t.slug, t.title, t.description, d.category, t.content'
+                . ' FROM document_translations t'
+                . ' JOIN documents d ON d.slug = t.slug'
+                . " WHERE t.locale = ? AND (t.title LIKE ? ESCAPE '\\'"
+                . " OR t.description LIKE ? ESCAPE '\\' OR t.content LIKE ? ESCAPE '\\')"
+                . ' ORDER BY d.position, t.title LIMIT ' . $limit;
+            $rows = $this->conn->query($sql, [$locale, $like, $like, $like]);
+        }
 
         $hits = [];
         foreach ($rows as $row) {
