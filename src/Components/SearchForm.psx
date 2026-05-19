@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Components;
 
+use App\I18n;
 use Polidog\UsePhp\Html\H;
 use Polidog\UsePhp\Storage\StorageType;
 
@@ -11,8 +12,9 @@ use function Polidog\UsePhp\Runtime\fc;
 
 /**
  * Search box. `query` pre-fills the field; `large` switches to the
- * hero/results size. Plain GET form -> /search (works without JS).
- * Tailwind, dark-mode aware.
+ * hero/results size; `locale` keeps the GET form on the locale's own
+ * `/search` path so results stay in that language. Plain GET form
+ * (works without JS). Tailwind, dark-mode aware.
  *
  * Wrapped in fc(..., StorageType::Memory): this component holds no
  * state, but use-php's default StorageType::Session would construct a
@@ -23,9 +25,13 @@ use function Polidog\UsePhp\Runtime\fc;
  * (App\PageCache s-maxage). No snapshot secret needed.
  */
 return fc(
-    fn (array $props) => (
+    function (array $props) {
+        $locale = $props['locale'] ?? I18n::DEFAULT;
+        $en = 'en' === $locale;
+
+        return (
         <form
-            action="/search"
+            action={I18n::path($locale, '/search')}
             method="get"
             className={($props['large'] ?? false) ? 'flex gap-1.5 mb-4 max-w-lg mx-auto' : 'flex gap-1.5 mb-4'}
         >
@@ -33,15 +39,16 @@ return fc(
                 type="search"
                 name="q"
                 value={$props['query'] ?? null}
-                placeholder="ドキュメントを検索…"
+                placeholder={$en ? 'Search the docs…' : 'ドキュメントを検索…'}
                 autocomplete="off"
                 className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
             />
             <button
                 type="submit"
                 className="px-3 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-slate-900 text-sm whitespace-nowrap"
-            >検索</button>
+            >{$en ? 'Search' : '検索'}</button>
         </form>
-    ),
+        );
+    },
     storageType: StorageType::Memory,
 );

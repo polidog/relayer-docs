@@ -21,6 +21,11 @@ declare(strict_types=1);
  * new/edit accept `--file <path>` (`-` = stdin) for non-interactive use
  * and `--note <text>` to record what changed (auto-derived if omitted).
  *
+ * Every command takes `--locale <code>` (default `ja`). `ja` is the
+ * canonical page in `documents`; any other locale is a translation
+ * overlay in `document_translations` that falls back to the canonical
+ * page when absent. Allowed locales: ja, en.
+ *
  * Backend (App\Docs\DocStoreFactory):
  *   TURSO_DATABASE_URL set  -> Turso (remote)   otherwise -> var/docs.db
  */
@@ -107,6 +112,20 @@ $assertSlug = static function (string $slug) use ($fail): void {
     if (!\preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
         $fail("invalid slug '{$slug}' (use lower-case letters, digits, hyphen)");
     }
+};
+
+// Locales the store understands. `ja` is the canonical page in
+// `documents`; anything else is an overlay in `document_translations`.
+// Kept to the configured APP_LOCALES set so a typo can't silently
+// create an orphan locale nobody routes to.
+$locales = ['ja', 'en'];
+$resolveLocale = static function (array &$args) use ($takeOpt, $fail, $locales): string {
+    $locale = $takeOpt($args, 'locale') ?? 'ja';
+    if (!\in_array($locale, $locales, true)) {
+        $fail("unknown --locale '{$locale}' (allowed: " . \implode(', ', $locales) . ')');
+    }
+
+    return $locale;
 };
 
 /** DocRecord -> editable buffer (front matter + body). */
@@ -205,24 +224,38 @@ switch ($command) {
 
     case 'list':
         $store->migrate();
+        $locale = $resolveLocale($rest);
         $rows = $store->nav();
         if ([] === $rows) {
             echo "no articles in {$target}. Create one: bin/docs new <slug>\n";
 
             break;
         }
-        echo "articles in {$target}:\n";
+        $translated = 'ja' === $locale ? [] : $store->translatedSlugs($locale);
+        echo "articles in {$target} (locale: {$locale}):\n";
+        $have = 0;
         foreach ($rows as $d) {
-            \printf("  %-22s %-14s %s\n", $d->slug, $d->category, $d->title);
+            $mark = 'ja' === $locale ? '' : (isset($translated[$d->slug]) ? '  ' : '* ');
+            if ('' === $mark || '  ' === $mark) {
+                ++$have;
+            }
+            \printf("  %s%-22s %-14s %s\n", $mark, $d->slug, $d->category, $d->title);
         }
-        echo \count($rows) . " total\n";
+        echo 'ja' === $locale
+            ? \count($rows) . " total\n"
+            : \count($rows) . " total, {$have} translated"
+                . ' (* = falls back to ja)' . "\n";
 
         break;
 
     case 'show':
         $store->migrate();
-        $slug = $rest[0] ?? $fail('usage: bin/docs show <slug>');
-        $doc = $store->get($slug) ?? $fail("not found: {$slug}");
+        $locale = $resolveLocale($rest);
+        $slug = $rest[0] ?? $fail('usage: bin/docs show <slug> [--locale <code>]');
+        $doc = $store->get($slug, $locale) ?? $fail("not found: {$slug}");
+        if ($locale !== $doc->locale) {
+            \fwrite(\STDERR, "note: no '{$locale}' translation for '{$slug}' — showing {$doc->locale}\n");
+        }
         echo $serialize($doc);
 
         break;
@@ -230,41 +263,78 @@ switch ($command) {
     case 'new':
     case 'edit':
         $store->migrate();
+        $locale = $resolveLocale($rest);
         $fileOpt = $takeOpt($rest, 'file');
         $note = $takeOpt($rest, 'note');
-        $slug = $rest[0] ?? $fail("usage: bin/docs {$command} <slug> [--file <path>|-] [--note <text>]");
+        $slug = $rest[0] ?? $fail("usage: bin/docs {$command} <slug> [--locale <code>] [--file <path>|-] [--note <text>]");
         $assertSlug($slug);
-        $existing = $store->get($slug);
 
-        if ('new' === $command && null !== $existing) {
-            $fail("already exists: {$slug} (use `bin/docs edit {$slug}`)");
-        }
-        if ('edit' === $command && null === $existing) {
-            $fail("not found: {$slug} (use `bin/docs new {$slug}`)");
-        }
+        // `get($slug, $locale)` returns the canonical ja row as a
+        // fallback when no translation exists, so the served record's
+        // own `locale` is the exact "does a real <locale> row exist?"
+        // signal — `=== $locale` only when one is actually stored.
+        $served = $store->get($slug, $locale);
+        $existsInLocale = null !== $served && $served->locale === $locale;
 
-        $seed = null !== $existing
-            ? $serialize($existing)
-            : "---\ntitle: ''\ndescription: ''\ncategory: ''\norder: 0\n---\n\n# " . $slug . "\n";
+        if ('ja' === $locale) {
+            if ('new' === $command && $existsInLocale) {
+                $fail("already exists: {$slug} (use `bin/docs edit {$slug}`)");
+            }
+            if ('edit' === $command && !$existsInLocale) {
+                $fail("not found: {$slug} (use `bin/docs new {$slug}`)");
+            }
+            $seed = $existsInLocale
+                ? $serialize($served)
+                : "---\ntitle: ''\ndescription: ''\ncategory: ''\norder: 0\n---\n\n# " . $slug . "\n";
+        } else {
+            // A translation overlays an existing canonical page; there
+            // is nothing to translate otherwise.
+            if (null === $store->get($slug)) {
+                $fail("no base page '{$slug}' — create it in ja first (`bin/docs new {$slug}`)");
+            }
+            if ('new' === $command && $existsInLocale) {
+                $fail("already exists: {$slug} ({$locale}) (use `bin/docs edit {$slug} --locale {$locale}`)");
+            }
+            if ('edit' === $command && !$existsInLocale) {
+                $fail("no '{$locale}' translation for '{$slug}' (use `bin/docs new {$slug} --locale {$locale}`)");
+            }
+            // New translation seeds from the canonical source so the
+            // translator works in place; an existing one seeds itself.
+            $seed = $serialize($existsInLocale ? $served : $store->get($slug));
+        }
 
         $doc = $deserialize($editBuffer($seed, $fileOpt), $slug);
-        $store->upsert($doc, $note);
-        echo ('new' === $command ? 'created' : 'updated') . ": {$slug} -> {$target}\n";
+        $store->upsert($doc, $note, $locale);
+        $suffix = 'ja' === $locale ? '' : " ({$locale})";
+        echo ('new' === $command ? 'created' : 'updated') . ": {$slug}{$suffix} -> {$target}\n";
 
         break;
 
     case 'rm':
         $store->migrate();
+        $locale = $resolveLocale($rest);
         $force = $hasFlag($rest, 'force');
-        $slug = $rest[0] ?? $fail('usage: bin/docs rm <slug> [--force]');
-        if (null === $store->get($slug)) {
-            $fail("not found: {$slug}");
+        $slug = $rest[0] ?? $fail('usage: bin/docs rm <slug> [--locale <code>] [--force]');
+        // `--locale ja` (or none) removes the whole page incl. every
+        // translation; a non-ja locale removes only that one overlay.
+        $whole = 'ja' === $locale;
+        if ($whole) {
+            if (null === $store->get($slug)) {
+                $fail("not found: {$slug}");
+            }
+            $what = "'{$slug}' (and all translations)";
+        } else {
+            $served = $store->get($slug, $locale);
+            if (null === $served || $served->locale !== $locale) {
+                $fail("no '{$locale}' translation for '{$slug}'");
+            }
+            $what = "'{$slug}' ({$locale} translation)";
         }
         if (!$force) {
             if (!\stream_isatty(\STDIN)) {
-                $fail("refusing to delete '{$slug}' non-interactively — pass --force");
+                $fail("refusing to delete {$what} non-interactively — pass --force");
             }
-            \fwrite(\STDOUT, "delete '{$slug}' from {$target}? [y/N] ");
+            \fwrite(\STDOUT, "delete {$what} from {$target}? [y/N] ");
             $ans = \trim((string) \fgets(\STDIN));
             if (!\in_array(\strtolower($ans), ['y', 'yes'], true)) {
                 echo "aborted\n";
@@ -272,34 +342,43 @@ switch ($command) {
                 break;
             }
         }
-        $store->delete($slug);
-        echo "deleted: {$slug}\n";
+        $store->delete($slug, $whole ? null : $locale);
+        echo "deleted: {$what}\n";
 
         break;
 
     case 'export':
         $store->migrate();
-        $dir = $rest[0] ?? $fail('usage: bin/docs export <dir>');
+        $locale = $resolveLocale($rest);
+        $dir = $rest[0] ?? $fail('usage: bin/docs export <dir> [--locale <code>]');
         if (!\is_dir($dir) && !\mkdir($dir, 0o775, true) && !\is_dir($dir)) {
             $fail("cannot create directory: {$dir}");
         }
+        // Non-ja exports only the slugs that actually have a stored
+        // translation — never the ja fallback — so an export/import
+        // round-trip can't leak canonical text into a locale.
+        $only = 'ja' === $locale ? null : $store->translatedSlugs($locale);
         $n = 0;
         foreach ($store->nav() as $meta) {
-            $doc = $store->get($meta->slug);
-            if (null === $doc) {
+            if (null !== $only && !isset($only[$meta->slug])) {
+                continue;
+            }
+            $doc = $store->get($meta->slug, $locale);
+            if (null === $doc || $doc->locale !== $locale) {
                 continue;
             }
             \file_put_contents(\rtrim($dir, '/') . '/' . $doc->slug . '.md', $serialize($doc));
             ++$n;
         }
-        echo "exported {$n} article(s) -> {$dir}\n";
+        echo "exported {$n} article(s) ({$locale}) -> {$dir}\n";
 
         break;
 
     case 'import':
         $store->migrate();
+        $locale = $resolveLocale($rest);
         if ([] === $rest) {
-            $fail('usage: bin/docs import <file.md> [<file.md>...]');
+            $fail('usage: bin/docs import <file.md> [<file.md>...] [--locale <code>]');
         }
         $n = 0;
         foreach ($rest as $path) {
@@ -309,11 +388,14 @@ switch ($command) {
             }
             $slug = \basename($path, '.md');
             $assertSlug($slug);
-            $store->upsert($deserialize($raw, $slug));
+            if ('ja' !== $locale && null === $store->get($slug)) {
+                $fail("no base page '{$slug}' — import its ja source first");
+            }
+            $store->upsert($deserialize($raw, $slug), null, $locale);
             ++$n;
-            echo "  imported {$slug}\n";
+            echo "  imported {$slug} ({$locale})\n";
         }
-        echo "imported {$n} file(s) -> {$target}\n";
+        echo "imported {$n} file(s) ({$locale}) -> {$target}\n";
 
         break;
 
@@ -333,6 +415,9 @@ switch ($command) {
 
             new/edit: --file <path> (or - for stdin) for non-interactive use;
                       --note <text> records what changed (else auto from diff).
+            --locale <code>: every command takes it (default ja). ja is the
+              canonical page; any other locale is a translation overlay that
+              falls back to ja when absent. allowed: ja, en.
             backend: {$target}
               set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN for the remote store.
 

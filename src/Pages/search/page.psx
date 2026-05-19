@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Components\SearchForm;
 use App\Components\Shell;
 use App\Docs\DocStore;
+use App\I18n;
 use App\Meta;
 use App\PageCache;
 use Polidog\Relayer\Http\Request;
@@ -21,48 +22,59 @@ use Polidog\UsePhp\Html\H;
  * and renders highlighted results as PSX with Tailwind.
  */
 return function (PageContext $ctx, Request $req, DocStore $store): Closure {
+    $locale = I18n::normalize($req->locale());
+    $en = 'en' === $locale;
     $query = \trim((string) ($req->query('q') ?? ''));
 
     $ctx->metadata(Meta::forPage(
-        ('' !== $query ? $query . ' の検索結果' : '検索') . ' — Relayer Docs',
-        'Relayer ドキュメントの全文検索。',
+        ('' !== $query ? ($en ? 'Search: ' . $query : $query . ' の検索結果') : ($en ? 'Search' : '検索')) . ' — Relayer Docs',
+        $en ? 'Full-text search across the Relayer documentation.' : 'Relayer ドキュメントの全文検索。',
         '' !== $query ? '/search?q=' . \rawurlencode($query) : '/search',
         'home',
+        $locale,
     ));
 
     // Time-based (PageCache::TTL). The ETag binds query + corpus
     // digest, so a post-expiry revalidation of the same query against
     // an unchanged corpus is a 304 and the search (in the render
-    // closure) is never run.
-    $ctx->cache(PageCache::timed('search-' . \sha1($query . '|' . $store->corpusTag())));
+    // closure) is never run. The ja sha input is byte-identical to the
+    // pre-i18n key (corpusTag('ja') is unchanged), so the canonical
+    // search ETag never moved; only a non-default locale folds its
+    // code in, keeping the two corpora on separate cache entries.
+    $digest = I18n::DEFAULT === $locale
+        ? \sha1($query . '|' . $store->corpusTag($locale))
+        : \sha1($locale . '|' . $query . '|' . $store->corpusTag($locale));
+    $ctx->cache(PageCache::timed('search-' . $digest));
 
-    return function () use ($store, $query) {
-        $hits = '' !== $query ? $store->search($query, 30) : [];
+    $switchPath = '/search' . ('' !== $query ? '?q=' . \rawurlencode($query) : '');
+
+    return function () use ($store, $query, $locale, $en, $switchPath) {
+        $hits = '' !== $query ? $store->search($query, 30, $locale) : [];
 
         return (
-        <Shell store={$store} active={null}>
+        <Shell store={$store} active={null} locale={$locale} path={$switchPath}>
             <section>
-                <h1 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">ドキュメント検索</h1>
-                <SearchForm query={$query} large={true} />
+                <h1 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">{$en ? 'Search the docs' : 'ドキュメント検索'}</h1>
+                <SearchForm query={$query} large={true} locale={$locale} />
 
                 {'' === $query ? (
-                    <div className="py-8 text-slate-500">検索キーワードを入力してください。</div>
+                    <div className="py-8 text-slate-500">{$en ? 'Enter a search term.' : '検索キーワードを入力してください。'}</div>
                 ) : ([] === $hits ? (
                     <div className="py-8 text-slate-500">
-                        「<strong className="text-slate-800 dark:text-slate-200">{$query}</strong>」に一致するドキュメントは見つかりませんでした。
+                        {$en ? 'No documents matched ' : '「'}<strong className="text-slate-800 dark:text-slate-200">{$query}</strong>{$en ? '.' : '」に一致するドキュメントは見つかりませんでした。'}
                     </div>
                 ) : (
                     <div>
-                        <p className="text-slate-500 text-sm">{\count($hits) . ' 件の結果'}</p>
+                        <p className="text-slate-500 text-sm">{$en ? (\count($hits) . ' results') : (\count($hits) . ' 件の結果')}</p>
                         <ul className="list-none m-0 p-0">
                             {array_map(fn ($hit) => (
                                 <li className="py-3.5 border-b border-slate-200 dark:border-slate-800">
                                     <a
-                                        href={'/docs/' . $hit->slug}
+                                        href={I18n::path($locale, '/docs/' . $hit->slug)}
                                         className="text-base font-semibold text-yellow-500 dark:text-yellow-300 no-underline hover:underline"
                                     >{$hit->title}</a>
                                     {'' !== $hit->category
-                                        ? (<span className="ml-2.5 text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{$hit->category}</span>)
+                                        ? (<span className="ml-2.5 text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{I18n::category($locale, $hit->category)}</span>)
                                         : null}
                                     <p className="mt-1.5 text-slate-500 dark:text-slate-400 text-sm">
                                         {array_map(fn (array $s) => $s['hit']

@@ -7,9 +7,11 @@ use App\Docs\DocStore;
 use App\Docs\Markdown;
 use App\Docs\Nav;
 use App\Docs\When;
+use App\I18n;
 use App\Meta;
 use App\PageCache;
 use Polidog\Relayer\Http\Cache;
+use Polidog\Relayer\Http\Request;
 use Polidog\Relayer\Router\Component\PageContext;
 use Polidog\UsePhp\Html\H;
 
@@ -22,35 +24,43 @@ use Polidog\UsePhp\Html\H;
  * styled with @tailwindcss/typography (`prose` / `dark:prose-invert`),
  * plus an on-page TOC and prev/next navigation.
  */
-return function (PageContext $ctx, DocStore $store): Closure {
+return function (PageContext $ctx, Request $req, DocStore $store): Closure {
+    $locale = I18n::normalize($req->locale());
+    $en = 'en' === $locale;
     $slug = $ctx->params['slug'] ?? '';
-    $doc = '' === $slug ? null : $store->get($slug);
+    $doc = '' === $slug ? null : $store->get($slug, $locale);
 
     if (null === $doc) {
         \http_response_code(404);
         $ctx->cache(new Cache(noStore: true));
         $ctx->metadata(Meta::forPage(
-            'ページが見つかりません — Relayer Docs',
-            'お探しのドキュメントは見つかりませんでした。',
+            $en ? 'Page not found — Relayer Docs' : 'ページが見つかりません — Relayer Docs',
+            $en ? 'The documentation you requested was not found.' : 'お探しのドキュメントは見つかりませんでした。',
             '/docs/' . $slug,
             'home',
+            $locale,
         ));
 
         return fn () => (
-            <Shell store={$store} active={null}>
+            <Shell store={$store} active={null} locale={$locale} path={'/docs/' . $slug}>
                 <section className="text-center py-16">
                     <h1 className="text-6xl font-bold m-0 text-slate-900 dark:text-white">404</h1>
-                    <p className="text-slate-500 dark:text-slate-400 my-4">{'ドキュメント「' . $slug . '」は存在しません。'}</p>
+                    <p className="text-slate-500 dark:text-slate-400 my-4">{$en ? ('The document "' . $slug . '" does not exist.') : ('ドキュメント「' . $slug . '」は存在しません。')}</p>
                     <a
-                        href="/"
+                        href={I18n::path($locale, '/')}
                         className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-yellow-300 hover:bg-yellow-400 text-slate-900 no-underline"
-                    >ホームへ戻る</a>
+                    >{$en ? 'Back to home' : 'ホームへ戻る'}</a>
                 </section>
             </Shell>
         );
     }
 
-    $ctx->metadata(Meta::forDoc($doc));
+    // Requested en but only the canonical ja exists → the store served
+    // the ja record (fallback). Surface it instead of silently showing
+    // Japanese under an English URL.
+    $untranslated = $en && $doc->locale !== $locale;
+
+    $ctx->metadata(Meta::forDoc($doc, $locale));
 
     // Syntax highlighting: load highlight.js only here (the sole route
     // with `<pre><code>` blocks), not globally. Emitted at end of <body>
@@ -62,11 +72,17 @@ return function (PageContext $ctx, DocStore $store): Closure {
     // remote Turso DB. The ETag is the page's own content hash, so a
     // post-expiry revalidation is a 304 that skips the (heavy) Markdown
     // render below. Edits via `bin/docs` surface after at most the TTL.
-    $ctx->cache(PageCache::timed('doc-' . $doc->hash));
+    // Keyed on the *requested* locale: ja stays exactly `doc-<hash>`
+    // (byte-identical ETag — canonical pages never revalidate), and a
+    // ja-fallback page served under /en still gets its own en key so
+    // the CDN can't cross-serve the two language chromes.
+    $ctx->cache(PageCache::timed(
+        I18n::DEFAULT === $locale ? 'doc-' . $doc->hash : 'doc-' . $locale . '-' . $doc->hash,
+    ));
 
     $md = new Markdown();
     $body = $md->render($doc->content);
-    $pn = Nav::prevNext(Nav::flat($store), $doc->slug);
+    $pn = Nav::prevNext(Nav::flat($store, $locale), $doc->slug);
 
     // Change history: newest first. "最終更新" tracks the latest
     // *content* change (a no-op edit that only bumps updated_at adds
@@ -79,13 +95,19 @@ return function (PageContext $ctx, DocStore $store): Closure {
     $oldestRevId = [] === $revisions ? 0 : $revisions[\array_key_last($revisions)]->id;
 
     return fn () => (
-        <Shell store={$store} active={$doc->slug}>
+        <Shell store={$store} active={$doc->slug} locale={$locale} path={'/docs/' . $doc->slug}>
             <article>
                 <div className="flex gap-2 items-center text-xs text-slate-500 mb-3">
-                    <a href="/" className="no-underline hover:text-slate-900 dark:hover:text-white">ホーム</a>
+                    <a href={I18n::path($locale, '/')} className="no-underline hover:text-slate-900 dark:hover:text-white">{$en ? 'Home' : 'ホーム'}</a>
                     <span className="opacity-50">/</span>
-                    <span>{'' !== $doc->category ? $doc->category : 'ドキュメント'}</span>
+                    <span>{'' !== $doc->category ? I18n::category($locale, $doc->category) : ($en ? 'Documentation' : 'ドキュメント')}</span>
                 </div>
+
+                {$untranslated ? (
+                    <div className="mb-5 px-4 py-2.5 rounded-lg text-sm bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-200 dark:border-yellow-500/30">
+                        This page hasn’t been translated yet — showing the original Japanese.
+                    </div>
+                ) : null}
 
                 <div className="prose prose-slate dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-a:text-yellow-500 dark:prose-a:text-yellow-300 prose-pre:bg-slate-950 prose-pre:text-slate-100">
                     {$body}
@@ -95,19 +117,19 @@ return function (PageContext $ctx, DocStore $store): Closure {
                     <div className="flex gap-3.5 mt-10 pt-5 border-t border-slate-200 dark:border-slate-800">
                         {null !== $pn['prev'] ? (
                             <a
-                                href={'/docs/' . $pn['prev']->slug}
+                                href={I18n::path($locale, '/docs/' . $pn['prev']->slug)}
                                 className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-yellow-300 no-underline"
                             >
-                                <span className="text-xs text-slate-500">← 前へ</span>
+                                <span className="text-xs text-slate-500">{$en ? '← Previous' : '← 前へ'}</span>
                                 <span className="font-semibold text-slate-900 dark:text-white">{$pn['prev']->title}</span>
                             </a>
                         ) : (<span className="flex-1"></span>)}
                         {null !== $pn['next'] ? (
                             <a
-                                href={'/docs/' . $pn['next']->slug}
+                                href={I18n::path($locale, '/docs/' . $pn['next']->slug)}
                                 className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-yellow-300 text-right no-underline"
                             >
-                                <span className="text-xs text-slate-500">次へ →</span>
+                                <span className="text-xs text-slate-500">{$en ? 'Next →' : '次へ →'}</span>
                                 <span className="font-semibold text-slate-900 dark:text-white">{$pn['next']->title}</span>
                             </a>
                         ) : (<span className="flex-1"></span>)}
@@ -116,19 +138,19 @@ return function (PageContext $ctx, DocStore $store): Closure {
 
                 <div className="mt-10 pt-5 border-t border-slate-200 dark:border-slate-800">
                     <div className="text-xs text-slate-500">
-                        {'最終更新: ' . When::date($lastChanged)}
+                        {($en ? 'Last updated: ' : '最終更新: ') . When::date($lastChanged)}
                     </div>
                     {[] !== $revisions ? (
                         <details className="mt-3">
                             <summary className="cursor-pointer text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white select-none">
-                                {'変更履歴 (' . \count($revisions) . ')'}
+                                {($en ? 'Change history (' : '変更履歴 (') . \count($revisions) . ')'}
                             </summary>
                             <ul className="list-none m-0 mt-3 p-0 border-l border-slate-200 dark:border-slate-800">
                                 {array_map(fn ($r) => (
                                     <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-1.5 text-sm">
                                         <time className="tabular-nums text-slate-400 dark:text-slate-500">{When::date($r->recordedAt)}</time>
                                         <span className="text-slate-700 dark:text-slate-300">
-                                            {'' !== $r->summary ? $r->summary : ($r->id === $oldestRevId ? '新規作成' : '更新')}
+                                            {'' !== $r->summary ? $r->summary : ($r->id === $oldestRevId ? ($en ? 'Created' : '新規作成') : ($en ? 'Updated' : '更新'))}
                                         </span>
                                     </li>
                                 ), $revisions)}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Components;
 
 use App\Docs\Nav;
+use App\I18n;
 use Polidog\UsePhp\Html\H;
 use Polidog\UsePhp\Storage\StorageType;
 
@@ -15,7 +16,9 @@ use function Polidog\UsePhp\Runtime\fc;
  * utilities, dark-mode aware. Shared by every page so the chrome stays
  * DRY.
  *
- * Props: store (DocStore), active (?string slug), children.
+ * Props: store (DocStore), active (?string slug), locale (string,
+ * default 'ja'), path (string, current request path for the language
+ * switcher), children.
  *
  * Wrapped in fc(..., StorageType::Memory) for the same reason as
  * SearchForm: this shell is stateless, but use-php's default
@@ -28,7 +31,13 @@ return fc(
     function (array $props) {
     $store = $props['store'];
     $active = $props['active'] ?? null;
-    $groups = Nav::groups($store);
+    $locale = $props['locale'] ?? I18n::DEFAULT;
+    $path = $props['path'] ?? '/';
+    $groups = Nav::groups($store, $locale);
+
+    $swBase = 'px-2 py-0.5 rounded text-xs font-semibold no-underline ';
+    $swOn = $swBase . 'bg-yellow-300 text-slate-900';
+    $swOff = $swBase . 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white';
 
     $grid = 'grid gap-8 items-start grid-cols-1 md:grid-cols-[244px_minmax(0,1fr)]';
 
@@ -39,16 +48,20 @@ return fc(
     return (
         <div className={$grid}>
             <aside id="sidebar" className="hidden md:block md:sticky md:top-20 self-start">
-                <SearchForm />
+                <div className="flex gap-1 mb-3 justify-end">
+                    <a href={I18n::switchTo('ja', $path)} className={I18n::DEFAULT === $locale ? $swOn : $swOff} hrefLang="ja">日本語</a>
+                    <a href={I18n::switchTo('en', $path)} className={'en' === $locale ? $swOn : $swOff} hrefLang="en">EN</a>
+                </div>
+                <SearchForm locale={$locale} />
                 <nav>
                     {array_map(fn (array $g) => (
                         <div className="mb-4">
-                            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-400 mb-1.5">{$g['category']}</div>
+                            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-400 mb-1.5">{I18n::category($locale, $g['category'])}</div>
                             <ul className="list-none m-0 p-0">
                                 {array_map(fn ($d) => (
                                     <li>
                                         <a
-                                            href={'/docs/' . $d->slug}
+                                            href={I18n::path($locale, '/docs/' . $d->slug)}
                                             className={$d->slug === $active ? $linkOn : $linkOff}
                                         >{$d->title}</a>
                                     </li>
