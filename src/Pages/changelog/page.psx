@@ -40,7 +40,7 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $ctx->cache(PageCache::timed('changelog-' . $store->corpusTag($locale)));
 
     return function () use ($store, $locale, $en) {
-        $revs = $store->recentRevisions(200);
+        $revs = $store->recentRevisions(200, $locale);
 
         return (
             <Shell store={$store} active={null} locale={$locale} path={'/changelog'}>

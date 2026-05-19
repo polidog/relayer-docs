@@ -134,6 +134,56 @@ final class DocStore
                 "ALTER TABLE document_revisions ADD COLUMN summary TEXT NOT NULL DEFAULT ''",
             );
         }
+
+        // `locale` was added after the table (and `summary`) shipped, to
+        // give each locale its own change history. Same idempotent
+        // probe-then-ALTER as `summary`: every pre-existing revision is
+        // canonical ja content, so the column defaults to 'ja' and the
+        // ja changelog/history is byte-identical (the read path filters
+        // `WHERE locale = 'ja'`, which is exactly the old full set).
+        $hasLocale = false;
+        foreach ($this->conn->query('PRAGMA table_info(document_revisions)') as $col) {
+            if ('locale' === ($col['name'] ?? null)) {
+                $hasLocale = true;
+
+                break;
+            }
+        }
+        if (!$hasLocale) {
+            $this->conn->execute(
+                "ALTER TABLE document_revisions ADD COLUMN locale TEXT NOT NULL DEFAULT 'ja'",
+            );
+        }
+
+        // The site-wide changelog reads newest-first within a locale, so
+        // index (locale, id). Created after the ALTER so the column
+        // exists; IF NOT EXISTS keeps it idempotent like every other
+        // migrate step.
+        $this->conn->execute(
+            'CREATE INDEX IF NOT EXISTS idx_revisions_locale'
+            . ' ON document_revisions (locale, id)',
+        );
+
+        // Backfill: seed one revision (its current state) for every
+        // stored translation that has none yet — translations imported
+        // before this feature recorded no history, so without this the
+        // localized changelog would be empty. recorded_at is the
+        // translation's own updated_at; an empty summary renders as the
+        // localized "Created" label (oldest revision). category comes
+        // from the canonical row (structural, shared). Idempotent via
+        // NOT EXISTS, mirroring the canonical backfill above.
+        $this->conn->execute(
+            'INSERT INTO document_revisions'
+            . ' (slug, title, description, category, content, hash, locale, recorded_at)'
+            . ' SELECT t.slug, t.title, t.description, d.category, t.content,'
+            . ' t.hash, t.locale, t.updated_at'
+            . ' FROM document_translations t'
+            . ' JOIN documents d ON d.slug = t.slug'
+            . ' WHERE NOT EXISTS ('
+            . '   SELECT 1 FROM document_revisions r'
+            . '   WHERE r.slug = t.slug AND r.locale = t.locale'
+            . ' )',
+        );
     }
 
     /**
@@ -274,13 +324,13 @@ final class DocStore
      *
      * @return list<DocRevision>
      */
-    public function revisions(string $slug, int $limit = 50): array
+    public function revisions(string $slug, int $limit = 50, string $locale = 'ja'): array
     {
         return $this->readRevisions(
             'SELECT id, slug, title, category, hash, summary, recorded_at'
-            . ' FROM document_revisions WHERE slug = ?'
+            . ' FROM document_revisions WHERE slug = ? AND locale = ?'
             . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 200)),
-            [$slug],
+            [$slug, $locale],
         );
     }
 
@@ -290,12 +340,13 @@ final class DocStore
      *
      * @return list<DocRevision>
      */
-    public function recentRevisions(int $limit = 200): array
+    public function recentRevisions(int $limit = 200, string $locale = 'ja'): array
     {
         return $this->readRevisions(
             'SELECT id, slug, title, category, hash, summary, recorded_at'
-            . ' FROM document_revisions'
+            . ' FROM document_revisions WHERE locale = ?'
             . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 500)),
+            [$locale],
         );
     }
 
@@ -305,9 +356,9 @@ final class DocStore
      * `documents.updated_at` for display: a no-op `bin/docs edit`
      * bumps that column but records no revision, so this stays put.
      */
-    public function lastChangedAt(string $slug): ?string
+    public function lastChangedAt(string $slug, string $locale = 'ja'): ?string
     {
-        $revs = $this->revisions($slug, 1);
+        $revs = $this->revisions($slug, 1, $locale);
 
         return [] === $revs ? null : $revs[0]->recordedAt;
     }
@@ -333,7 +384,10 @@ final class DocStore
             $msg = $e->getMessage();
             if (
                 \str_contains($msg, 'document_revisions')
-                || (\str_contains($msg, 'no such column') && \str_contains($msg, 'summary'))
+                || (
+                    \str_contains($msg, 'no such column')
+                    && (\str_contains($msg, 'summary') || \str_contains($msg, 'locale'))
+                )
             ) {
                 return [];
             }
@@ -384,7 +438,7 @@ final class DocStore
     public function upsert(DocRecord $doc, ?string $summary = null, string $locale = 'ja'): void
     {
         if ('ja' !== $locale) {
-            $this->upsertTranslation($doc, $locale);
+            $this->upsertTranslation($doc, $locale, $summary);
 
             return;
         }
@@ -438,11 +492,13 @@ final class DocStore
 
             // Same transaction as the row + FTS write, mirroring the
             // store's invariant: history, content and search index can
-            // never disagree about what was published.
+            // never disagree about what was published. locale='ja' is
+            // explicit so the canonical history stays exactly the rows
+            // the localized changelog reads for `ja`.
             $ops[] = [
                 'INSERT INTO document_revisions'
-                . ' (slug, title, description, category, content, hash, summary, recorded_at)'
-                . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                . ' (slug, title, description, category, content, hash, summary, locale, recorded_at)'
+                . " VALUES (?, ?, ?, ?, ?, ?, ?, 'ja', ?)",
                 [
                     $doc->slug, $doc->title, $doc->description, $doc->category,
                     $doc->content, $doc->hash, $note, $doc->updatedAt,
@@ -455,17 +511,36 @@ final class DocStore
 
     /**
      * Write one locale's overlay for a page. The canonical `documents`
-     * row, its FTS mirror and its revision history are never touched —
-     * `category`/`position` come from there on read, so a translation
-     * carries only the locale-varying text. The translation FTS mirror
-     * is rebuilt in the same transaction as the row, the same
-     * invariant the canonical path keeps. Translations have no separate
-     * revision history in this iteration; the canonical page's history
-     * remains the page's history.
+     * row and its FTS mirror are never touched — `category`/`position`
+     * come from there on read, so a translation carries only the
+     * locale-varying text. The translation FTS mirror is rebuilt in the
+     * same transaction as the row, the same invariant the canonical
+     * path keeps. A revision is recorded for this locale on a real
+     * content change (same hash-keyed rule as the canonical path), so
+     * the localized changelog/history is the locale's own.
+     *
+     * @param null|string $summary the editor's `--note`; auto-derived
+     *                              (in $locale) from the diff when blank
      */
-    private function upsertTranslation(DocRecord $doc, string $locale): void
+    private function upsertTranslation(DocRecord $doc, string $locale, ?string $summary = null): void
     {
-        $this->conn->transactional([
+        $prev = $this->conn->query(
+            'SELECT hash, content FROM document_translations'
+            . ' WHERE slug = ? AND locale = ? LIMIT 1',
+            [$doc->slug, $locale],
+        );
+        $isNew = [] === $prev;
+        $changed = $isNew || (string) ($prev[0]['hash'] ?? '') !== $doc->hash;
+
+        // category is structural (canonical row); carry it on the
+        // revision so the changelog can show it without a join.
+        $cat = $this->conn->query(
+            'SELECT category FROM documents WHERE slug = ? LIMIT 1',
+            [$doc->slug],
+        );
+        $category = (string) ($cat[0]['category'] ?? '');
+
+        $ops = [
             [
                 'INSERT INTO document_translations'
                 . ' (slug, locale, title, description, content, hash, updated_at)'
@@ -488,19 +563,40 @@ final class DocStore
                 . ' (slug, locale, title, description, content) VALUES (?, ?, ?, ?, ?)',
                 [$doc->slug, $locale, $doc->title, $doc->description, $doc->content],
             ],
-        ]);
+        ];
+
+        if ($changed) {
+            $note = null === $summary ? '' : \trim($summary);
+            $note = '' === $note
+                ? self::summarize($isNew, (string) ($prev[0]['content'] ?? ''), $doc->content, $locale)
+                : \mb_substr($note, 0, 200);
+
+            $ops[] = [
+                'INSERT INTO document_revisions'
+                . ' (slug, title, description, category, content, hash, summary, locale, recorded_at)'
+                . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    $doc->slug, $doc->title, $doc->description, $category,
+                    $doc->content, $doc->hash, $note, $locale, $doc->updatedAt,
+                ],
+            ];
+        }
+
+        $this->conn->transactional($ops);
     }
 
     /**
-     * Derive a one-line Japanese change note from the diff vs the
+     * Derive a one-line change note (in $locale) from the diff vs the
      * previous content: which Markdown sections were added/removed,
      * plus a non-blank line delta. The fallback when the editor gives
-     * no `--note`, so an entry never just says "更新".
+     * no `--note`, so an entry never just says "更新"/"Updated". The
+     * line-delta `(+n −m)` is language-neutral.
      */
-    private static function summarize(bool $isNew, string $prev, string $new): string
+    private static function summarize(bool $isNew, string $prev, string $new, string $locale = 'ja'): string
     {
+        $en = 'en' === $locale;
         if ($isNew) {
-            return '新規作成';
+            return $en ? 'Created' : '新規作成';
         }
 
         $headings = static function (string $md): array {
@@ -518,8 +614,13 @@ final class DocStore
         $added = \array_keys(\array_diff_key($newH, $prevH));
         $removed = \array_keys(\array_diff_key($prevH, $newH));
 
-        $list = static function (array $names): string {
+        $list = static function (array $names) use ($en): string {
             $shown = \array_slice($names, 0, 2);
+            if ($en) {
+                $s = \implode(', ', \array_map(static fn (string $n): string => '"' . $n . '"', $shown));
+
+                return \count($names) > 2 ? $s . ' +' . (\count($names) - 2) . ' more' : $s;
+            }
             $s = \implode('', \array_map(static fn (string $n): string => '「' . $n . '」', $shown));
 
             return \count($names) > 2 ? $s . '他' . (\count($names) - 2) . '件' : $s;
@@ -543,16 +644,18 @@ final class DocStore
 
         $parts = [];
         if ([] !== $added) {
-            $parts[] = $list($added) . 'を追加';
+            $parts[] = $en ? 'Added ' . $list($added) : $list($added) . 'を追加';
         }
         if ([] !== $removed) {
-            $parts[] = $list($removed) . 'を削除';
+            $parts[] = $en ? 'Removed ' . $list($removed) : $list($removed) . 'を削除';
         }
         if ([] === $parts) {
-            $parts[] = ($plus + $minus) > 0 ? '本文を更新' : 'メタ情報を更新';
+            $parts[] = ($plus + $minus) > 0
+                ? ($en ? 'Updated body' : '本文を更新')
+                : ($en ? 'Updated metadata' : 'メタ情報を更新');
         }
 
-        return \mb_substr(\implode('・', $parts) . $delta, 0, 120);
+        return \mb_substr(\implode($en ? '; ' : '・', $parts) . $delta, 0, 120);
     }
 
     /**

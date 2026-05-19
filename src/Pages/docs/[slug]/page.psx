@@ -84,14 +84,16 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $body = $md->render($doc->content);
     $pn = Nav::prevNext(Nav::flat($store, $locale), $doc->slug);
 
-    // Change history: newest first. "最終更新" tracks the latest
-    // *content* change (a no-op edit that only bumps updated_at adds
-    // no revision), falling back to the row timestamp only before the
-    // first revision exists. The oldest revision is the page's
+    // Change history: newest first, in the *served* locale ($doc->locale
+    // — a ja-fallback page shows ja history matching its ja body; a real
+    // en page shows the en translation's own history). "最終更新" tracks
+    // the latest content change (a no-op edit that only bumps updated_at
+    // adds no revision), falling back to the row timestamp only before
+    // the first revision exists. The oldest revision is the page's
     // creation. Both move only when $doc->hash moves, so the existing
-    // doc-<hash> ETag still flips exactly when this block changes.
-    $revisions = $store->revisions($doc->slug);
-    $lastChanged = $store->lastChangedAt($doc->slug) ?? $doc->updatedAt;
+    // doc[-locale]-<hash> ETag still flips exactly when this block changes.
+    $revisions = $store->revisions($doc->slug, 50, $doc->locale);
+    $lastChanged = $store->lastChangedAt($doc->slug, $doc->locale) ?? $doc->updatedAt;
     $oldestRevId = [] === $revisions ? 0 : $revisions[\array_key_last($revisions)]->id;
 
     return fn () => (
