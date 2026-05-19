@@ -22,6 +22,15 @@ primary_region = "nrt"   # Tokyo — was asia-northeast1 on Cloud Run
 
 [env]
   APP_ENV = "production"
+  # The repo .env is .dockerignore'd, so production i18n config must
+  # live here. APP_LOCALE=ja makes ja the single resolved locale:
+  # Relayer binds no locale *switching* (that needs APP_LOCALES with
+  # 2+ entries), Request::locale() is "ja", and every page is served
+  # byte-identically to the pre-i18n site (no /{locale} path prefix).
+  # APP_LOCALES is deliberately omitted until the FrankenPHP path-
+  # prefix 404 is diagnosed; adding it here later (e.g. "ja,en") is
+  # what flips the live site bilingual.
+  APP_LOCALE = "ja"
 
 [http_service]
   internal_port = 8080
