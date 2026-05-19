@@ -260,7 +260,7 @@ final class DocStore
             . ' FROM documents d'
             . ' LEFT JOIN document_translations t'
             . ' ON t.slug = d.slug AND t.locale = ?'
-            . ' ORDER BY d.position, title',
+            . ' ORDER BY d.position, d.title',
             ['ja', $locale, $locale],
         );
 
@@ -362,11 +362,16 @@ final class DocStore
         $hashes = $this->hashes($locale);
         \ksort($hashes);
 
-        return \substr(
-            \hash('sha256', $locale . "\0" . (string) \json_encode($hashes)),
-            0,
-            24,
-        );
+        // The `ja` payload is byte-identical to the pre-i18n digest so
+        // every corpus-wide ETag (home / search / sitemap) is unmoved —
+        // no sitewide CDN revalidation on deploy. Only a non-`ja`
+        // corpus is namespaced, so locales can't collide.
+        $payload = (string) \json_encode($hashes);
+        if ('ja' !== $locale) {
+            $payload = $locale . "\0" . $payload;
+        }
+
+        return \substr(\hash('sha256', $payload), 0, 24);
     }
 
     /**
