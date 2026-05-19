@@ -48,10 +48,12 @@ return fc(
     return (
         <div className={$grid}>
             <aside id="sidebar" className="hidden md:block md:sticky md:top-20 self-start">
-                <div className="flex gap-1 mb-3 justify-end">
-                    <a href={I18n::switchTo('ja', $path)} className={I18n::DEFAULT === $locale ? $swOn : $swOff} hrefLang="ja">日本語</a>
-                    <a href={I18n::switchTo('en', $path)} className={'en' === $locale ? $swOn : $swOff} hrefLang="en">EN</a>
-                </div>
+                {I18n::bilingual() ? (
+                    <div className="flex gap-1 mb-3 justify-end">
+                        <a href={I18n::switchTo('ja', $path)} className={I18n::DEFAULT === $locale ? $swOn : $swOff} hrefLang="ja">日本語</a>
+                        <a href={I18n::switchTo('en', $path)} className={'en' === $locale ? $swOn : $swOff} hrefLang="en">EN</a>
+                    </div>
+                ) : null}
                 <SearchForm locale={$locale} />
                 <nav>
                     {array_map(fn (array $g) => (

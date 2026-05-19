@@ -35,11 +35,16 @@ use Polidog\Relayer\Http\Response;
 return [
     'GET' => function (DocStore $store): Response {
         $base = SiteUrl::base();
-        // Both language corpora drive the body, so the ETag must bust
-        // when either changes. corpusTag('ja') is the pre-i18n digest.
+        // The ETag must bust when any published locale's corpus moves.
+        // Single-locale prod ⇒ exactly `…-<corpusTag('ja')>`, byte-
+        // identical to the pre-i18n sitemap key; a bilingual deploy
+        // appends each extra locale's tag.
+        $corpus = '';
+        foreach (I18n::locales() as $loc) {
+            $corpus .= '-' . $store->corpusTag($loc);
+        }
         $cache = PageCache::timed(
-            'sitemap-' . \substr(\sha1($base), 0, 8)
-            . '-' . $store->corpusTag('ja') . '-' . $store->corpusTag('en'),
+            'sitemap-' . \substr(\sha1($base), 0, 8) . $corpus,
         );
         CachePolicy::emit($cache);
         if (CachePolicy::isNotModified($cache)) {
@@ -82,12 +87,14 @@ return [
         }
         $corpusDate = $day($latest);
 
-        // Every URL is emitted once per locale: ja unprefixed (the
-        // canonical, pre-i18n URLs unchanged) and en under /en. en docs
-        // fall back to the canonical body when untranslated, but the
-        // URL is still indexable, so list it regardless.
+        // One URL set per *published* locale (App\I18n::locales(), from
+        // APP_LOCALES — the same signal Relayer routes on). Single-
+        // locale prod therefore emits only the canonical unprefixed
+        // URLs (no /en/ 404s in the sitemap); a bilingual deployment
+        // adds the /en set. en docs fall back to the canonical body
+        // when untranslated, but the URL is still indexable.
         $urls = [];
-        foreach (I18n::SUPPORTED as $loc) {
+        foreach (I18n::locales() as $loc) {
             $urls[] = $url($base . I18n::path($loc, '/'), $corpusDate, 'weekly', '1.0');
             $urls[] = $url($base . I18n::path($loc, '/changelog'), $corpusDate, 'weekly', '0.5');
             foreach ($docs as $d) {

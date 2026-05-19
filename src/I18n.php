@@ -26,8 +26,39 @@ final class I18n
     /** Canonical locale: unprefixed, byte-identical to the old site. */
     public const DEFAULT = 'ja';
 
-    /** @var list<string> Locales the site publishes (mirrors APP_LOCALES). */
-    public const SUPPORTED = ['ja', 'en'];
+    /** Locales the framework actually understands as values. */
+    private const KNOWN = ['ja', 'en'];
+
+    /**
+     * Locales the site actually publishes, from `APP_LOCALES` — the
+     * SAME signal Relayer uses to decide whether to bind locale
+     * switching, so the app's chrome (switcher, sitemap) can never
+     * disagree with what the framework will route. Production sets
+     * this in fly.toml (the repo `.env` is .dockerignore'd and only
+     * configures local dev); unset/single ⇒ just the canonical locale,
+     * and the site behaves byte-identically to the pre-i18n version.
+     *
+     * @return list<string>
+     */
+    public static function locales(): array
+    {
+        $raw = $_ENV['APP_LOCALES'] ?? $_SERVER['APP_LOCALES'] ?? \getenv('APP_LOCALES');
+        $out = [];
+        foreach (\is_string($raw) ? \explode(',', $raw) : [] as $code) {
+            $code = \trim($code);
+            if (\in_array($code, self::KNOWN, true) && !\in_array($code, $out, true)) {
+                $out[] = $code;
+            }
+        }
+
+        return [] === $out ? [self::DEFAULT] : $out;
+    }
+
+    /** True only when more than one locale is actually published. */
+    public static function bilingual(): bool
+    {
+        return \count(self::locales()) > 1;
+    }
 
     /** Category-heading labels per locale, keyed by the canonical (ja) name. */
     private const CATEGORY = [
@@ -47,7 +78,7 @@ final class I18n
      */
     public static function normalize(?string $locale): string
     {
-        return null !== $locale && \in_array($locale, self::SUPPORTED, true)
+        return null !== $locale && \in_array($locale, self::locales(), true)
             ? $locale
             : self::DEFAULT;
     }
@@ -60,7 +91,7 @@ final class I18n
     public static function path(string $locale, string $path): string
     {
         $path = '/' . \ltrim($path, '/');
-        if (self::DEFAULT === $locale || !\in_array($locale, self::SUPPORTED, true)) {
+        if (self::DEFAULT === $locale || !\in_array($locale, self::locales(), true)) {
             return $path;
         }
 
@@ -75,7 +106,7 @@ final class I18n
     public static function switchTo(string $target, string $currentPath): string
     {
         $path = '/' . \ltrim($currentPath, '/');
-        foreach (self::SUPPORTED as $loc) {
+        foreach (self::locales() as $loc) {
             if (self::DEFAULT === $loc) {
                 continue;
             }
