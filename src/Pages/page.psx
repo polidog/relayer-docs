@@ -67,7 +67,7 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
 
             <div className="grid gap-4 mt-4 grid-cols-1 md:grid-cols-2">
                 {array_map(fn (array $g) => (
-                    <section className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-5 py-4">
+                    <section className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-5 py-4 min-w-0">
                         <h2 className="m-0 mb-2.5 text-base font-semibold text-slate-900 dark:text-white">{I18n::category($locale, $g['category'])}</h2>
                         <ul className="list-none m-0 p-0">
                             {array_map(fn ($d) => (
@@ -76,9 +76,9 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                                         href={I18n::path($locale, '/docs/' . $d->slug)}
                                         className="block px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 no-underline"
                                     >
-                                        <span className="block font-semibold text-slate-900 dark:text-white">{$d->title}</span>
+                                        <span className="block font-semibold text-slate-900 dark:text-white break-words">{$d->title}</span>
                                         {'' !== $d->description
-                                            ? (<span className="block text-[13px] text-slate-500 dark:text-slate-400">{$d->description}</span>)
+                                            ? (<span className="block text-[13px] text-slate-500 dark:text-slate-400 break-words">{$d->description}</span>)
                                             : null}
                                     </a>
                                 </li>
