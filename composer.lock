@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bb023ff245d0f57a29861ba259a68eea",
+    "content-hash": "96936ec21ed88f22e458d0f7ef1cb2cf",
     "packages": [
         {
             "name": "firebase/php-jwt",
@@ -233,16 +233,16 @@
         },
         {
             "name": "polidog/relayer",
-            "version": "v0.20.0",
+            "version": "v0.21.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/polidog/relayer.git",
-                "reference": "ed2ab2514bd88ab14d3338d3b2516aa97e482ee5"
+                "reference": "b1b223a3fcf07d0c62b92ac6054a09f2f1e41535"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/polidog/relayer/zipball/ed2ab2514bd88ab14d3338d3b2516aa97e482ee5",
-                "reference": "ed2ab2514bd88ab14d3338d3b2516aa97e482ee5",
+                "url": "https://api.github.com/repos/polidog/relayer/zipball/b1b223a3fcf07d0c62b92ac6054a09f2f1e41535",
+                "reference": "b1b223a3fcf07d0c62b92ac6054a09f2f1e41535",
                 "shasum": ""
             },
             "require": {
@@ -288,22 +288,22 @@
             "description": "Relayer — file-based router + Symfony DependencyInjection + dotenv on top of polidog/use-php.",
             "support": {
                 "issues": "https://github.com/polidog/relayer/issues",
-                "source": "https://github.com/polidog/relayer/tree/v0.20.0"
+                "source": "https://github.com/polidog/relayer/tree/v0.21.0"
             },
-            "time": "2026-05-20T06:55:56+00:00"
+            "time": "2026-05-20T12:37:13+00:00"
         },
         {
             "name": "polidog/use-php",
-            "version": "v0.7.1",
+            "version": "v0.7.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/polidog/usePHP.git",
-                "reference": "10994d2b55284a8ce7758cdad9cf64720283207c"
+                "reference": "1b23bb648faf875193d89d674d3eaf9319f1aab6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/polidog/usePHP/zipball/10994d2b55284a8ce7758cdad9cf64720283207c",
-                "reference": "10994d2b55284a8ce7758cdad9cf64720283207c",
+                "url": "https://api.github.com/repos/polidog/usePHP/zipball/1b23bb648faf875193d89d674d3eaf9319f1aab6",
+                "reference": "1b23bb648faf875193d89d674d3eaf9319f1aab6",
                 "shasum": ""
             },
             "require": {
@@ -342,9 +342,9 @@
             "description": "React Hooks-like PHP components with server-side state management",
             "support": {
                 "issues": "https://github.com/polidog/usePHP/issues",
-                "source": "https://github.com/polidog/usePHP/tree/v0.7.1"
+                "source": "https://github.com/polidog/usePHP/tree/v0.7.2"
             },
-            "time": "2026-05-18T09:35:47+00:00"
+            "time": "2026-05-20T07:57:52+00:00"
         },
         {
             "name": "psr/container",
@@ -1168,16 +1168,16 @@
         },
         {
             "name": "symfony/yaml",
-            "version": "v7.4.11",
+            "version": "v7.4.12",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/yaml.git",
-                "reference": "e2eb64a57763815ccae07ac1c7653d6cc1c326fd"
+                "reference": "8b6952b56ca6417f25f7a65758cadd0ce02edc51"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/yaml/zipball/e2eb64a57763815ccae07ac1c7653d6cc1c326fd",
-                "reference": "e2eb64a57763815ccae07ac1c7653d6cc1c326fd",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/8b6952b56ca6417f25f7a65758cadd0ce02edc51",
+                "reference": "8b6952b56ca6417f25f7a65758cadd0ce02edc51",
                 "shasum": ""
             },
             "require": {
@@ -1220,7 +1220,7 @@
             "description": "Loads and dumps YAML files",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/yaml/tree/v7.4.11"
+                "source": "https://github.com/symfony/yaml/tree/v7.4.12"
             },
             "funding": [
                 {
@@ -1240,7 +1240,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-13T12:04:42+00:00"
+            "time": "2026-05-20T07:20:23+00:00"
         }
     ],
     "packages-dev": [],
