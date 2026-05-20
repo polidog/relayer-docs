@@ -86,15 +86,23 @@ $hasFlag = static function (array &$args, string $name): bool {
 };
 
 // The CLI has no HTTP request, but it resolves DocStore through the
-// same DI wiring the web app uses: AppConfigurator (the single
-// composition root) reads the env vars into parameters and
-// services.yaml injects them into DocStoreFactory. The factory itself
-// stays env-free and web/CLI can never disagree on the backend.
+// same DI wiring the web app uses: services.yaml declares
+// `app.turso_url` / `app.turso_token` / `app.docs_db_path` as
+// `%env(string:...)%` placeholders, and the container expands them
+// here. The factory itself stays env-free and web/CLI can never
+// disagree on the backend.
+//
+// compile(true) — i.e. resolveEnvPlaceholders=true — is required so
+// the `%env(...)%` placeholders are inlined now (this is a live
+// ContainerBuilder, never dumped). Without it the raw
+// `env_<hash>_NAME_<hash>` strings would leak straight into
+// TursoConnection. The web app already gets this via Relayer's
+// ContainerFactory; here we make the same call ourselves.
 $container = new ContainerBuilder();
 $container->setParameter('app.project_root', $root);
 (new AppConfigurator($root))->configure($container);
 (new YamlFileLoader($container, new FileLocator($root . '/config')))->load('services.yaml');
-$container->compile();
+$container->compile(true);
 
 $store = $container->get(DocStore::class);
 \assert($store instanceof DocStore);
