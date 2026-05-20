@@ -149,9 +149,9 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                             </summary>
                             <ul className="list-none m-0 mt-3 p-0 border-l border-slate-200 dark:border-slate-800">
                                 {array_map(fn ($r) => (
-                                    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-1.5 text-sm">
+                                    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-1.5 text-sm min-w-0">
                                         <time className="tabular-nums text-slate-400 dark:text-slate-500">{When::date($r->recordedAt)}</time>
-                                        <span className="text-slate-700 dark:text-slate-300">
+                                        <span className="text-slate-700 dark:text-slate-300 break-words min-w-0">
                                             {'' !== $r->summary ? $r->summary : ($r->id === $oldestRevId ? ($en ? 'Created' : '新規作成') : ($en ? 'Updated' : '更新'))}
                                         </span>
                                     </li>

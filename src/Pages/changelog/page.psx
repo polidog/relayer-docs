@@ -55,17 +55,17 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                     ) : (
                         <ul className="list-none m-0 p-0 border-l border-slate-200 dark:border-slate-800">
                             {array_map(fn ($r) => (
-                                <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-2 border-b border-slate-100 dark:border-slate-800/60">
+                                <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-2 border-b border-slate-100 dark:border-slate-800/60 min-w-0">
                                     <time className="tabular-nums text-sm text-slate-400 dark:text-slate-500 w-[88px]">{When::date($r->recordedAt)}</time>
                                     <a
                                         href={I18n::path($locale, '/docs/' . $r->slug)}
-                                        className="font-medium text-slate-800 dark:text-slate-200 hover:text-yellow-600 dark:hover:text-yellow-300 no-underline"
+                                        className="font-medium text-slate-800 dark:text-slate-200 hover:text-yellow-600 dark:hover:text-yellow-300 no-underline break-words min-w-0"
                                     >{$r->title}</a>
                                     {'' !== $r->category ? (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">{I18n::category($locale, $r->category)}</span>
                                     ) : null}
                                     {'' !== $r->summary ? (
-                                        <span className="w-full text-sm text-slate-500 dark:text-slate-400">{$r->summary}</span>
+                                        <span className="w-full text-sm text-slate-500 dark:text-slate-400 break-words min-w-0">{$r->summary}</span>
                                     ) : null}
                                 </li>
                             ), $revs)}
