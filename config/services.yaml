@@ -1,3 +1,25 @@
+# Env defaults — Symfony's `env(NAME)` parameter is read as the
+# fallback when the real env var is unset, so `%env(TURSO_DATABASE_URL)%`
+# returns '' on dev/CI without TURSO_* set instead of throwing. The
+# DocStoreFactory selection rule (Turso vs. local SQLite) then reads
+# '' as "not configured" and falls back to var/docs.db.
+parameters:
+  env(TURSO_DATABASE_URL): ''
+  env(TURSO_AUTH_TOKEN): ''
+  env(DOCS_DB_PATH): ''
+
+  # app.turso_* / app.docs_db_path remain stable parameter names so
+  # bin/docs (which reads `app.turso_url` to print "Turso (remote)" vs.
+  # "var/docs.db (local)") and any future readers don't depend on the
+  # env-var spelling. The right-hand side is a `%env()%` placeholder,
+  # not a string baked at configure-time, so `vendor/bin/relayer
+  # container:compile` is safe to adopt: the dump expands these to
+  # per-request `getEnv()` calls and Fly secrets injected at runtime
+  # resolve correctly. See /docs/services-di and /docs/cli.
+  app.turso_url: '%env(string:TURSO_DATABASE_URL)%'
+  app.turso_token: '%env(string:TURSO_AUTH_TOKEN)%'
+  app.docs_db_path: '%env(string:DOCS_DB_PATH)%'
+
 services:
   _defaults:
     autowire: true
@@ -5,12 +27,9 @@ services:
     public: true
 
   # The documentation store. The backend (Turso vs. a local SQLite
-  # file under var/) is selected by the factory from the configuration
-  # injected here. The app.turso_* / app.docs_db_path parameters are
-  # resolved from the environment by AppConfigurator (the composition
-  # root) before the container compiles. autowire is off because the
-  # concrete SqlConnection is chosen at runtime by the factory, not by
-  # the container.
+  # file under var/) is selected by the factory from the parameters
+  # above. autowire is off because the concrete SqlConnection is chosen
+  # at runtime by the factory, not by the container.
   App\Docs\DocStore:
     factory: ['App\Docs\DocStoreFactory', 'create']
     arguments:
