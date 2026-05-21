@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "96936ec21ed88f22e458d0f7ef1cb2cf",
+    "content-hash": "8f5ea966e48384f55e4026d9a337e804",
     "packages": [
         {
             "name": "firebase/php-jwt",
@@ -233,16 +233,16 @@
         },
         {
             "name": "polidog/relayer",
-            "version": "v0.21.0",
+            "version": "v0.22.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/polidog/relayer.git",
-                "reference": "b1b223a3fcf07d0c62b92ac6054a09f2f1e41535"
+                "reference": "9ae104dcd6c0e92b1841a29e4c4dc8b6254a785c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/polidog/relayer/zipball/b1b223a3fcf07d0c62b92ac6054a09f2f1e41535",
-                "reference": "b1b223a3fcf07d0c62b92ac6054a09f2f1e41535",
+                "url": "https://api.github.com/repos/polidog/relayer/zipball/9ae104dcd6c0e92b1841a29e4c4dc8b6254a785c",
+                "reference": "9ae104dcd6c0e92b1841a29e4c4dc8b6254a785c",
                 "shasum": ""
             },
             "require": {
@@ -288,9 +288,9 @@
             "description": "Relayer — file-based router + Symfony DependencyInjection + dotenv on top of polidog/use-php.",
             "support": {
                 "issues": "https://github.com/polidog/relayer/issues",
-                "source": "https://github.com/polidog/relayer/tree/v0.21.0"
+                "source": "https://github.com/polidog/relayer/tree/v0.22.0"
             },
-            "time": "2026-05-20T12:37:13+00:00"
+            "time": "2026-05-20T23:08:11+00:00"
         },
         {
             "name": "polidog/use-php",
