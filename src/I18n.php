@@ -64,6 +64,7 @@ final class I18n
     private const CATEGORY = [
         'en' => [
             'はじめに' => 'Getting Started',
+            'チュートリアル' => 'Tutorial',
             'ルーティング' => 'Routing',
             '機能' => 'Features',
             '開発' => 'Development',
