@@ -17,17 +17,34 @@ use Polidog\UsePhp\Html\H;
 
 /**
  * Site-wide changelog: every page's content changes, newest first,
- * fed by App\Docs\DocStore::recentRevisions(). Function-style,
- * two-level: the factory sets metadata + cache, the closure renders.
+ * fed by App\Docs\DocStore::recentRevisions(). Paginated via `?page=`
+ * (PER_PAGE rows each). Function-style, two-level: the factory sets
+ * metadata + cache, the closure renders.
  */
 return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $locale = I18n::normalize($req->locale());
     $en = 'en' === $locale;
 
+    // `?page=` is 1-based; clamp into [1, pageCount] so an out-of-range
+    // value yields the last page (not an empty list) and the cache key
+    // below stays bounded. The COUNT is cheap and the corpus digest
+    // already hits the DB every request, so paying for it here is fine.
+    $perPage = 30;
+    $total = $store->revisionCount($locale);
+    $pageCount = \max(1, (int) \ceil($total / $perPage));
+    $page = \max(1, (int) ($req->query('page') ?? '1'));
+    $page = \min($page, $pageCount);
+    $offset = ($page - 1) * $perPage;
+
+    // Page 1 is the canonical `/changelog`; deeper pages carry `?page=N`
+    // so the canonical, the language switcher (Shell) and the cache key
+    // all agree on which slice is being served.
+    $pagePath = '/changelog' . ($page > 1 ? '?page=' . $page : '');
+
     $ctx->metadata(Meta::forPage(
         $en ? 'Changelog — Relayer Docs' : '更新履歴 — Relayer Docs',
         $en ? 'Change history across every Relayer documentation article.' : 'Relayer ドキュメントの全記事の更新履歴。',
-        '/changelog',
+        $pagePath,
         'home',
         $locale,
     ));
@@ -35,15 +52,25 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     // Same time-based policy as the corpus pages. corpusTag() changes
     // iff some page's content changed — which is exactly when a new
     // revision is recorded — so a post-expiry revalidation is a 304
-    // until the changelog actually has something new. corpusTag('ja')
+    // until the changelog actually has something new. The page number
+    // is folded in so each slice is its own cache entry. corpusTag('ja')
     // is the pre-i18n digest, so the canonical ETag is unmoved.
-    $ctx->cache(PageCache::timed('changelog-' . $store->corpusTag($locale)));
+    $ctx->cache(PageCache::timed('changelog-' . $store->corpusTag($locale) . '-p' . $page));
 
-    return function () use ($store, $locale, $en) {
-        $revs = $store->recentRevisions(200, $locale);
+    return function () use ($store, $locale, $en, $perPage, $offset, $page, $pageCount) {
+        $revs = $store->recentRevisions($perPage, $locale, $offset);
+
+        // Newest-first: a lower page number is *newer*. Page 1 drops the
+        // query string so it points back at the canonical `/changelog`.
+        $pageHref = static fn (int $p): string => I18n::path($locale, '/changelog' . ($p > 1 ? '?page=' . $p : ''));
+        $prevHref = $page > 1 ? $pageHref($page - 1) : null;
+        $nextHref = $page < $pageCount ? $pageHref($page + 1) : null;
+        $navBtn = 'px-3 py-1.5 rounded border text-sm no-underline transition-colors';
+        $navOn = ' border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300';
+        $navOff = ' border-slate-100 dark:border-slate-800 text-slate-300 dark:text-slate-700 cursor-default';
 
         return (
-            <Shell store={$store} active={null} locale={$locale} path={'/changelog'}>
+            <Shell store={$store} active={null} locale={$locale} path={'/changelog' . ($page > 1 ? '?page=' . $page : '')}>
                 <section className="py-2">
                     <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-white">{$en ? 'Changelog' : '更新履歴'}</h1>
                     <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
@@ -71,6 +98,20 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                             ), $revs)}
                         </ul>
                     )}
+
+                    {$pageCount > 1 ? (
+                        <nav className="flex items-center justify-between gap-4 mt-8" aria-label={$en ? 'Pagination' : 'ページ送り'}>
+                            {null !== $prevHref
+                                ? (<a href={$prevHref} className={$navBtn . $navOn} rel="prev">{$en ? '← Newer' : '← 新しい'}</a>)
+                                : (<span className={$navBtn . $navOff} aria-disabled="true">{$en ? '← Newer' : '← 新しい'}</span>)}
+                            <span className="text-sm text-slate-500 dark:text-slate-400 tabular-nums">
+                                {$en ? ('Page ' . $page . ' of ' . $pageCount) : ($page . ' / ' . $pageCount . ' ページ')}
+                            </span>
+                            {null !== $nextHref
+                                ? (<a href={$nextHref} className={$navBtn . $navOn} rel="next">{$en ? 'Older →' : '古い →'}</a>)
+                                : (<span className={$navBtn . $navOff} aria-disabled="true">{$en ? 'Older →' : '古い →'}</span>)}
+                        </nav>
+                    ) : null}
                 </section>
             </Shell>
         );
