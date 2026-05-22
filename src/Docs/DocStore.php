@@ -340,14 +340,43 @@ final class DocStore
      *
      * @return list<DocRevision>
      */
-    public function recentRevisions(int $limit = 200, string $locale = 'ja'): array
+    public function recentRevisions(int $limit = 200, string $locale = 'ja', int $offset = 0): array
     {
         return $this->readRevisions(
             'SELECT id, slug, title, category, hash, summary, recorded_at'
             . ' FROM document_revisions WHERE locale = ?'
-            . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 500)),
+            . ' ORDER BY id DESC LIMIT ' . \max(1, \min($limit, 500))
+            . ' OFFSET ' . \max(0, $offset),
             [$locale],
         );
+    }
+
+    /**
+     * Total recorded revisions for $locale — the row count behind
+     * {@see recentRevisions()}, used to paginate the changelog.
+     * Degrades to 0 (not a 500) when the revisions table/column is not
+     * yet provisioned, mirroring {@see readRevisions()}.
+     */
+    public function revisionCount(string $locale = 'ja'): int
+    {
+        try {
+            $rows = $this->conn->query(
+                'SELECT COUNT(*) AS c FROM document_revisions WHERE locale = ?',
+                [$locale],
+            );
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            if (
+                \str_contains($msg, 'document_revisions')
+                || (\str_contains($msg, 'no such column') && \str_contains($msg, 'locale'))
+            ) {
+                return 0;
+            }
+
+            throw $e;
+        }
+
+        return (int) ($rows[0]['c'] ?? 0);
     }
 
     /**
