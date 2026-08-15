@@ -1,0 +1,64 @@
+# Worker-mode Caddy config for the SINGLE-BINARY build of the docs site.
+#
+# Byte-for-byte Caddyfile.classic plus the `worker` block below. The
+# entrypoint installs this file as `Caddyfile` only when the container
+# is started with RELAYER_WORKER=1, so classic mode stays the default
+# and switching (or rolling back) is an env var plus a restart — no
+# rebuild, same binary.
+#
+# Keep this file and Caddyfile.classic in sync outside the worker block.
+{
+	# Override-able for debugging: -e CADDY_GLOBAL_OPTIONS="debug".
+	{$CADDY_GLOBAL_OPTIONS}
+
+	# fly-proxy handles HTTPS; never let Caddy try to provision certs.
+	auto_https off
+
+	frankenphp {
+		worker {
+			# Lives outside public/ on purpose: a worker script under
+			# the document root would be reachable as /worker.php and
+			# executed as an ordinary request.
+			file {$APP_ROOT}/worker.php
+
+			# FrankenPHP's default is 2 per CPU. Fly runs this on a
+			# single shared-cpu-1x core with 256MB, and each worker
+			# holds a booted container + router, so pin it low and
+			# leave a knob rather than scaling with whatever core count
+			# the host reports.
+			num {$RELAYER_WORKER_NUM:2}
+
+			# Recycle after N requests as a backstop against anything
+			# the per-request resets in worker.php miss. 0 = never.
+			env MAX_REQUESTS {$RELAYER_WORKER_MAX_REQUESTS:0}
+		}
+	}
+}
+
+:8080 {
+	log {
+		# Fly captures stdout/stderr as logs.
+		output stderr
+		format console
+	}
+
+	root {$APP_ROOT}/public
+	encode zstd br gzip
+
+	# Don't serve dotfiles, except ACME challenges. Caddy uses Go's
+	# RE2 engine (no PCRE lookahead), so the .well-known carve-out is
+	# an explicit `not path` rather than a negative-lookahead regexp.
+	@hidden {
+		path_regexp /\.
+		not path /.well-known/*
+	}
+	respond @hidden 403
+
+	# Front controller. Static files (e.g. /usephp.js) are still served
+	# straight off disk by Caddy; everything else reaches the worker,
+	# which handles it through the same Relayer router that index.php
+	# would have booted per request.
+	php_server {
+		try_files {path} index.php
+	}
+}

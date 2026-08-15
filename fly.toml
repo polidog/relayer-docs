@@ -1,10 +1,29 @@
 # Fly.io deployment for the Relayer docs site.
 #
-# The Dockerfile runs FrankenPHP (single process) serving plain HTTP
-# on :8080 — see docker/Caddyfile — so internal_port below just has to
-# match. The app does zero filesystem writes at runtime (Turso over
-# HTTP, literal-ETag cache, NullProfiler), so the default rootfs is
-# fine — nothing needs a volume.
+# Built from static-build.Dockerfile: a single ~104MB executable with
+# the application, PHP 8.5, the extensions and Caddy inside it, on a
+# debian-slim base carrying nothing but a CA bundle. It serves plain
+# HTTP on :8080 (docker/embed/Caddyfile.classic), so internal_port
+# below just has to match.
+#
+# Why this instead of ./Dockerfile, which builds the same app the
+# ordinary way: 655MB → 192MB image, and 1393ms → 700ms from container
+# start to first 200, which is the number that matters here because
+# auto_stop_machines means visitors regularly pay a cold start.
+# Verified byte-identical to the classic image on every endpoint before
+# the switch. ./Dockerfile is kept as the fallback — swapping the
+# `dockerfile` line back is a complete rollback.
+#
+# The cost is build time: PHP is compiled from source, ~45 minutes on a
+# 16-core machine, so deploys are slow even though the app itself is
+# unchanged. See static-build.Dockerfile for why the prebuilt-toolchain
+# shortcuts do not work.
+#
+# Runtime writes: the binary untars itself into /var/www/html at boot
+# and the entrypoint compiles the PSX/route caches there (~0.1s) — the
+# embedded app's absolute path is not knowable at build time. Those are
+# the only writes; the doc content is read from Turso over HTTP. All of
+# it is ephemeral rootfs, so nothing needs a volume.
 #
 # Docs content is NOT deployed here — it is written to Turso directly
 # from a local machine with `bin/docs sync --prune`. This service only
@@ -18,7 +37,7 @@ app = "relayer-doc"
 primary_region = "nrt"   # Tokyo — was asia-northeast1 on Cloud Run
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = "static-build.Dockerfile"
 
 [env]
   APP_ENV = "production"
