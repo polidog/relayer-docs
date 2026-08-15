@@ -61,10 +61,26 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      # --build-secret github_token: static-build.Dockerfile resolves the
+      # latest release of ~35 source tarballs through api.github.com,
+      # where anonymous callers get 60 requests an hour per IP. A build
+      # that runs out mid-way fails on a 403 that reads like a network
+      # blip. The job's own token lifts the ceiling to 5000/h; the
+      # Dockerfile treats the secret as optional, so nothing breaks if
+      # this is ever dropped.
+      #
+      # This build compiles PHP from source (~45 minutes on 16 cores),
+      # so expect this step to dominate the job. Nothing is released
+      # until it succeeds — a failed build leaves the running machines
+      # untouched.
       - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
+        run: flyctl deploy --remote-only --build-secret github_token="${GH_BUILD_TOKEN}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          # Through env rather than interpolated into the command line:
+          # keeps the value out of the process arguments, and follows the
+          # same rule the rest of this workflow uses for secrets.
+          GH_BUILD_TOKEN: ${{ github.token }}
 
       # Runs only when the deploy above succeeded (a failed step aborts
       # the job). Purges the whole zone so visitors get the new build

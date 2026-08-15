@@ -66,19 +66,29 @@ src/Docs/                 ストア層 + Markdown→Element レンダラ
   Nav.php                 ナビ用データ（マークアップ無し）
 src/Components/           共有 PSX コンポーネント（Shell / SearchForm）
 src/Pages/                ルート（layout.psx / page.psx / docs/[slug] / search / api/search）
-public/index.php          エントリ（Tailwind CDN + dark mode を注入）
+src/DocumentFactory.php   <head> 一式（Tailwind CDN + dark mode 等）。毎リクエスト生成
+public/index.php          エントリ（classic mode）
+worker.php                エントリ（FrankenPHP worker mode。公開ディレクトリ外）
+Dockerfile                本番イメージ（FrankenPHP + アプリツリー）
+static-build.Dockerfile   シングルバイナリ版イメージ（下記）
+docker/embed/             シングルバイナリ版だけが使う Caddyfile / php.ini / entrypoint
 ```
 
 詳細・デプロイ手順はサイト内の「[デプロイ](http://127.0.0.1:8000/docs/deployment)」を参照。
 
 ## 本番デプロイ（Fly.io / FrankenPHP）
 
-`Dockerfile`（`dunglas/frankenphp:php8.5`）を `fly.toml` でそのままビルドして
-Fly.io にデプロイします。FrankenPHP（Caddy + 埋め込み PHP）が単一プロセスで
+`static-build.Dockerfile`（シングルバイナリ）を `fly.toml` でビルドして Fly.io に
+デプロイします。アプリ・PHP 8.5・拡張・Caddy を内包した約104MB の実行ファイル 1 つ＋
+CA 証明書だけのイメージ（192MB）。FrankenPHP（Caddy + 埋め込み PHP）が単一プロセスで
 HTTP を直接処理＝nginx/php-fpm 不要。worker は使わず classic mode（php-fpm
-ドロップイン）。ビルド時に PSX を 2 か所へ事前コンパイル（コンポーネント→
-`var/cache/psx`、ページ→`src/var/cache/psx`）、実行時はファイル書き込みゼロ。
+ドロップイン）。PSX とルートのコンパイルは**起動時**（約0.1秒、`docker/embed/`）。
 リージョンは `nrt`（東京）、アイドル時はマシン停止＝ゼロスケール。
+
+`Dockerfile`（`dunglas/frankenphp:php8.5` + アプリツリー）も動く状態で残してあり、
+`fly.toml` の `dockerfile =` を戻すだけで完全にロールバックできます。両者のレスポンスが
+バイト単位で一致することは切り替え前に検証済み。**ビルドは PHP をソースからコンパイル
+するため約45分**（16コア実測）かかる点だけ注意。
 
 一回限りの準備（`fly` 未インストールなら `curl -L https://fly.io/install.sh | sh`）:
 
@@ -103,6 +113,43 @@ fly secrets set GA_MEASUREMENT_ID=G-XXXXXXXXXX --app relayer-doc
 
 ローカル確認: `docker build -t relayer-doc . && docker run -p 8080:8080 \
  -e TURSO_DATABASE_URL=... -e TURSO_AUTH_TOKEN=... relayer-doc`
+
+### シングルバイナリ版（`static-build.Dockerfile`）— 本番はこちら
+
+アプリ・PHP 8.5・拡張・Caddy を 1 つの実行ファイルに詰めたビルド。ローカルで動かすには:
+
+```bash
+GH_TOKEN="$(gh auth token)" docker build \
+  --secret id=github_token,env=GH_TOKEN \
+  -t relayer-doc-static -f static-build.Dockerfile .
+
+docker run --rm -p 8080:8080 --env-file .env.local relayer-doc-static      # classic mode
+docker run --rm -p 8080:8080 --env-file .env.local \
+  -e RELAYER_WORKER=1 relayer-doc-static                                    # worker mode
+```
+
+`GH_TOKEN` は任意（未指定でも動く）。static-php-cli が ~35 本のソースの最新版を
+`api.github.com` で解決するため、未認証の 60 req/h を使い切ると途中で 403 になる。
+
+計測値（既存イメージとの比較）:
+
+| | `Dockerfile` | `static-build.Dockerfile` |
+|---|---|---|
+| イメージ | 655MB | **192MB**（バイナリ 104MB + CA 証明書のみ） |
+| 起動 → 初回 200 | 1393ms | **700ms** |
+| アイドル時 RSS | 88MB | **51MB** |
+| ビルド時間 | 約2分 | **約45分**（PHP をソースからビルド） |
+| レスポンス | — | 全エンドポイントでバイト単位一致 |
+
+`Dockerfile` と違い PSX / ルートのコンパイルは**起動時**に走る（約0.1秒）。埋め込み
+アプリの絶対パスがビルド前に確定しないため（詳細は `docker/embed/embed-compile.php`）。
+
+**worker mode について**: 実装・検証済みだが、このアプリでは**性能上の利点は測定
+できなかった**。単発レイテンシは classic と同一（ホーム 121ms / doc ページ 196ms、
+いずれも Turso 往復が支配的で、PHP 側は `/robots.txt` の 3ms が示すとおり誤差）。
+RSS は +8MB。切り替えは同一バイナリのまま `RELAYER_WORKER=1` と再起動だけで、
+ロールバックにリビルドが要らない。Turso をローカルレプリカに寄せるなど I/O 律速で
+なくなった時に再評価する。
 
 ### CI/CD（GitHub Actions）
 
