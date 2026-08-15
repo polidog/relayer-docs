@@ -1,0 +1,62 @@
+# Classic-mode Caddy config for the SINGLE-BINARY build of the docs
+# site. The worker-mode counterpart is Caddyfile.worker; both are
+# embedded, and docker/embed/entrypoint.sh installs one of them as
+# `Caddyfile` at boot depending on RELAYER_WORKER.
+#
+# Sibling of docker/Caddyfile (the classic image). Differences, and only
+# these:
+#
+#   * It is copied into the app root so it ends up INSIDE the binary.
+#     `frankenphp php-server` looks for a file literally named
+#     `Caddyfile` in the extracted app; when it finds one it loads that
+#     config and ignores every command-line flag (--listen, --root,
+#     --worker …). So this file, not the entrypoint, is where server
+#     configuration belongs — including worker mode.
+#   * `root` is `{$APP_ROOT}/public`, exported by the entrypoint, rather
+#     than a hardcoded path. The build pins the app's extraction
+#     directory to /var/www/html (see static-build.Dockerfile), so in
+#     practice it resolves to exactly what the classic image serves.
+#
+# Everything else — plain HTTP on :8080 behind fly-proxy's TLS
+# termination, the dotfile block, the front controller — is deliberately
+# identical to the classic image so the two builds serve byte-identical
+# responses.
+{
+	# Override-able for debugging: -e CADDY_GLOBAL_OPTIONS="debug".
+	{$CADDY_GLOBAL_OPTIONS}
+
+	# fly-proxy handles HTTPS; never let Caddy try to provision certs.
+	auto_https off
+
+	frankenphp
+}
+
+:8080 {
+	log {
+		# Fly captures stdout/stderr as logs.
+		output stderr
+		format console
+	}
+
+	root {$APP_ROOT}/public
+	encode zstd br gzip
+
+	# Don't serve dotfiles, except ACME challenges. Caddy uses Go's
+	# RE2 engine (no PCRE lookahead), so the .well-known carve-out is
+	# an explicit `not path` rather than a negative-lookahead regexp.
+	@hidden {
+		path_regexp /\.
+		not path /.well-known/*
+	}
+	respond @hidden 403
+
+	# Front controller: serve real files (e.g. /usephp.js), route
+	# everything else to Relayer's single entrypoint (index.php).
+	# No `worker` directive → classic mode, exactly like the Docker
+	# image: one script execution per request, no state shared between
+	# requests. Worker mode is a separate, later step (it needs a
+	# worker script that resets use-php's per-request statics).
+	php_server {
+		try_files {path} index.php
+	}
+}
