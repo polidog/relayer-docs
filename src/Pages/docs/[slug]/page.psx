@@ -21,10 +21,13 @@ use Polidog\UsePhp\Html\H;
 /**
  * A single documentation page. The slug is the dynamic `[slug]`
  * segment; the Markdown body is rendered into an element tree and
- * styled with @tailwindcss/typography — a bare `prose`, since the
- * palette is driven by the `--tw-prose-*` overrides in
- * App\DocumentFactory rather than by a `dark:prose-invert` twin —
- * plus prev/next navigation and the revision list.
+ * styled with @tailwindcss/typography. The class list is just `prose`,
+ * with no `prose-slate` / `dark:prose-invert` modifiers: the palette
+ * comes from the `--tw-prose-*` overrides in App\DocumentFactory, which
+ * are theme-aware already. (That stylesheet writes the selector as
+ * `.prose.prose` purely to outrank the plugin's own rule — a repeated
+ * class matches this single `prose` here.) Plus prev/next navigation
+ * and the revision list.
  */
 return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $locale = I18n::normalize($req->locale());
@@ -108,7 +111,7 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
         <Shell store={$store} active={$doc->slug} locale={$locale}>
             <article>
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted mb-6">
-                    <a href={I18n::path($locale, '/docs')} className="text-draft no-underline hover:underline">{$en ? 'Docs' : 'Docs'}</a>
+                    <a href={I18n::path($locale, '/docs')} className="text-draft no-underline hover:underline">Docs</a>
                     <span>{'' !== $doc->category ? I18n::category($locale, $doc->category) : ($en ? 'Documentation' : 'ドキュメント')}</span>
                     <span className="bp-leader"></span>
                     <span className="normal-case tracking-normal">{$doc->slug}</span>

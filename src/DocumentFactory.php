@@ -174,7 +174,10 @@ final class DocumentFactory
                  is deliberate: the Play CDN injects the plugin's own `.prose`
                  rule (with its default gray `--tw-prose-*` values) after this
                  stylesheet, and at equal specificity the later rule would win
-                 — leaving near-black text on the dark theme. */
+                 — leaving near-black text on the dark theme. Repeating the
+                 class only raises specificity; `.prose.prose` still matches an
+                 element whose class list contains `prose` once, so the markup
+                 stays a plain `class="prose"`. */
               .prose.prose {
                 --tw-prose-body: rgb(var(--bp-ink));
                 --tw-prose-headings: rgb(var(--bp-ink));

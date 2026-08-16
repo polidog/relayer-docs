@@ -40,16 +40,20 @@ return function (PageContext $ctx, Request $req): Closure {
         $locale,
     ));
 
-    // FIG.03 is a `<pre><code>` plate, so this route loads highlight.js
-    // the same per-page way the doc pages do (App asset convention:
-    // external scripts are declared by the page that needs them).
+    // FIG.01 in the hero is a `<pre><code>` plate, so this route loads
+    // highlight.js the same per-page way the doc pages do (App asset
+    // convention: external scripts are declared by the page that needs
+    // them).
     $ctx->js('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js', defer: true);
 
-    // Fully static copy (App\Landing) — nothing here reads the doc
-    // store, so the ETag only has to move when the page's own text or
-    // markup does. PageCache::REVISION covers the markup; the locale
-    // covers the copy.
-    $ctx->cache(PageCache::timed('landing-' . $locale));
+    // Nothing here reads the doc store, so the two inputs to the body
+    // are the markup (PageCache::REVISION) and this locale's copy —
+    // which is hashed in, so editing a string in App\Landing moves the
+    // ETag on its own. Without that a returning browser would be told
+    // `304 Not Modified` and keep the old wording indefinitely.
+    $ctx->cache(PageCache::timed(
+        'landing-' . $locale . '-' . \substr(\sha1(\serialize($c)), 0, 12),
+    ));
 
     $band = 'border-b border-rule';
     $wrap = 'max-w-7xl mx-auto px-4 md:px-6';

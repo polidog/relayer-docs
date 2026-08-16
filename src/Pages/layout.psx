@@ -103,15 +103,15 @@ final class RootLayout extends LayoutComponent
                 <footer className="border-t border-rule bg-sheet/60">
                     <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 grid gap-6 grid-cols-2 md:grid-cols-4">
                         <div>
-                            <div className={$field}>{$en ? 'Project' : 'Project'}</div>
+                            <div className={$field}>Project</div>
                             <div className="mt-1 text-sm">Relayer {$en ? 'Documentation' : 'ドキュメント'}</div>
                         </div>
                         <div>
-                            <div className={$field}>{$en ? 'Drawn with' : 'Drawn with'}</div>
-                            <div className="mt-1 text-sm">Relayer + use-php</div>
+                            <div className={$field}>Drawn with</div>
+                            <div className="mt-1 text-sm">Relayer + usePHP</div>
                         </div>
                         <div>
-                            <div className={$field}>{$en ? 'Content store' : 'Content store'}</div>
+                            <div className={$field}>Content store</div>
                             <div className="mt-1 text-sm">Turso (libSQL)</div>
                         </div>
                         <div>
