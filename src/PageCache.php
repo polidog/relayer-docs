@@ -31,13 +31,34 @@ final class PageCache
     /** Seconds a shared/edge (CDN) cache keeps it fresh — 30 days. */
     public const SHARED_TTL = 30 * 24 * 60 * 60;
 
+    /**
+     * Site-markup generation, folded into every ETag.
+     *
+     * The per-page keys below describe the *content* (a doc's content
+     * hash, the corpus digest, a query). None of them move when the
+     * chrome, the stylesheet or a page's own layout changes — so
+     * without this, a redesign would keep answering `304 Not Modified`
+     * to every returning browser holding the old validator, and would
+     * only reach them once their entry expired. Bump it whenever the
+     * rendered markup changes site-wide.
+     *
+     * This includes CSS-only changes: the stylesheet is inlined in
+     * `<head>`, so a browser holding an old validator would keep being
+     * told `304 Not Modified` and keep rendering the old CSS forever —
+     * the per-page key never moves on its own.
+     *
+     * `bp1` — the blueprint/drafting-sheet design (2026-08).
+     * `bp2` — dark-mode prose colors + palette-aware heading anchors.
+     */
+    public const REVISION = 'bp2';
+
     public static function timed(string $etag): Cache
     {
         return new Cache(
             public: true,
             maxAge: self::TTL,
             sMaxAge: self::SHARED_TTL,
-            etag: $etag,
+            etag: self::REVISION . '-' . $etag,
         );
     }
 }

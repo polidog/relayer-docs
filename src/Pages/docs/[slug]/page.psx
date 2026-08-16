@@ -21,8 +21,13 @@ use Polidog\UsePhp\Html\H;
 /**
  * A single documentation page. The slug is the dynamic `[slug]`
  * segment; the Markdown body is rendered into an element tree and
- * styled with @tailwindcss/typography (`prose` / `dark:prose-invert`),
- * plus an on-page TOC and prev/next navigation.
+ * styled with @tailwindcss/typography. The class list is just `prose`,
+ * with no `prose-slate` / `dark:prose-invert` modifiers: the palette
+ * comes from the `--tw-prose-*` overrides in App\DocumentFactory, which
+ * are theme-aware already. (That stylesheet writes the selector as
+ * `.prose.prose` purely to outrank the plugin's own rule — a repeated
+ * class matches this single `prose` here.) Plus prev/next navigation
+ * and the revision list.
  */
 return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $locale = I18n::normalize($req->locale());
@@ -42,14 +47,20 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
         ));
 
         return fn () => (
-            <Shell store={$store} active={null} locale={$locale} path={'/docs/' . $slug}>
-                <section className="text-center py-16">
-                    <h1 className="text-6xl font-bold m-0 text-slate-900 dark:text-white">404</h1>
-                    <p className="text-slate-500 dark:text-slate-400 my-4">{$en ? ('The document "' . $slug . '" does not exist.') : ('ドキュメント「' . $slug . '」は存在しません。')}</p>
-                    <a
-                        href={I18n::path($locale, '/')}
-                        className="inline-block px-5 py-2.5 rounded-lg font-semibold bg-yellow-300 hover:bg-yellow-400 text-slate-900 no-underline"
-                    >{$en ? 'Back to home' : 'ホームへ戻る'}</a>
+            <Shell store={$store} active={null} locale={$locale}>
+                <section className="py-12 md:py-16">
+                    <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-mark">404 — not found</div>
+                    <h1 className="mt-4 font-display text-4xl md:text-5xl font-bold tracking-[-0.02em] text-ink">{$en ? 'No such sheet' : 'その図面はありません'}</h1>
+                    <p className="mt-4 text-muted">
+                        {$en ? 'Nothing is filed under ' : '次のスラグに対応するページはありません: '}
+                        <span className="font-mono text-ink">{$slug}</span>
+                    </p>
+                    <div className="mt-8">
+                        <a
+                            href={I18n::path($locale, '/docs')}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] bg-draft text-paper hover:bg-ink no-underline"
+                        >{($en ? 'Open the index' : 'ドキュメント一覧へ') . ' ▸'}</a>
+                    </div>
                 </section>
             </Shell>
         );
@@ -97,61 +108,62 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $oldestRevId = [] === $revisions ? 0 : $revisions[\array_key_last($revisions)]->id;
 
     return fn () => (
-        <Shell store={$store} active={$doc->slug} locale={$locale} path={'/docs/' . $doc->slug}>
+        <Shell store={$store} active={$doc->slug} locale={$locale}>
             <article>
-                <div className="flex gap-2 items-center text-xs text-slate-500 mb-3">
-                    <a href={I18n::path($locale, '/')} className="no-underline hover:text-slate-900 dark:hover:text-white">{$en ? 'Home' : 'ホーム'}</a>
-                    <span className="opacity-50">/</span>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted mb-6">
+                    <a href={I18n::path($locale, '/docs')} className="text-draft no-underline hover:underline">Docs</a>
                     <span>{'' !== $doc->category ? I18n::category($locale, $doc->category) : ($en ? 'Documentation' : 'ドキュメント')}</span>
+                    <span className="bp-leader"></span>
+                    <span className="normal-case tracking-normal">{$doc->slug}</span>
                 </div>
 
                 {$untranslated ? (
-                    <div className="mb-5 px-4 py-2.5 rounded-lg text-sm bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-200 dark:border-yellow-500/30">
+                    <div className="mb-6 px-4 py-3 text-sm border border-mark/40 bg-mark/[0.07] text-ink">
                         This page hasn’t been translated yet — showing the original Japanese.
                     </div>
                 ) : null}
 
-                <div className="prose prose-slate dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none prose-a:text-yellow-500 dark:prose-a:text-yellow-300 prose-pre:bg-slate-950 prose-pre:text-slate-100">
+                <div className="prose max-w-none">
                     {$body}
                 </div>
 
                 {(null !== $pn['prev'] || null !== $pn['next']) ? (
-                    <div className="flex gap-3.5 mt-10 pt-5 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex flex-col sm:flex-row gap-px mt-12 bg-rule border border-rule">
                         {null !== $pn['prev'] ? (
                             <a
                                 href={I18n::path($locale, '/docs/' . $pn['prev']->slug)}
-                                className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-yellow-300 no-underline"
+                                className="flex-1 flex flex-col gap-1.5 px-4 py-4 bg-sheet hover:bg-draft/[0.05] no-underline group"
                             >
-                                <span className="text-xs text-slate-500">{$en ? '← Previous' : '← 前へ'}</span>
-                                <span className="font-semibold text-slate-900 dark:text-white">{$pn['prev']->title}</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">{$en ? '◂ Previous' : '◂ 前へ'}</span>
+                                <span className="font-medium text-ink group-hover:text-draft">{$pn['prev']->title}</span>
                             </a>
-                        ) : (<span className="flex-1"></span>)}
+                        ) : (<span className="flex-1 bg-sheet"></span>)}
                         {null !== $pn['next'] ? (
                             <a
                                 href={I18n::path($locale, '/docs/' . $pn['next']->slug)}
-                                className="flex-1 flex flex-col gap-1 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-yellow-300 text-right no-underline"
+                                className="flex-1 flex flex-col gap-1.5 px-4 py-4 bg-sheet hover:bg-draft/[0.05] sm:text-right no-underline group"
                             >
-                                <span className="text-xs text-slate-500">{$en ? 'Next →' : '次へ →'}</span>
-                                <span className="font-semibold text-slate-900 dark:text-white">{$pn['next']->title}</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">{$en ? 'Next ▸' : '次へ ▸'}</span>
+                                <span className="font-medium text-ink group-hover:text-draft">{$pn['next']->title}</span>
                             </a>
-                        ) : (<span className="flex-1"></span>)}
+                        ) : (<span className="flex-1 bg-sheet"></span>)}
                     </div>
                 ) : null}
 
-                <div className="mt-10 pt-5 border-t border-slate-200 dark:border-slate-800">
-                    <div className="text-xs text-slate-500">
-                        {($en ? 'Last updated: ' : '最終更新: ') . When::date($lastChanged)}
+                <div className="mt-10 pt-5 border-t border-rule">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+                        {($en ? 'Last revised — ' : '最終更新 — ') . When::date($lastChanged)}
                     </div>
                     {[] !== $revisions ? (
                         <details className="mt-3">
-                            <summary className="cursor-pointer text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white select-none">
-                                {($en ? 'Change history (' : '変更履歴 (') . \count($revisions) . ')'}
+                            <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.18em] text-muted hover:text-draft select-none">
+                                {($en ? 'Revisions (' : '改訂履歴 (') . \count($revisions) . ')'}
                             </summary>
-                            <ul className="list-none m-0 mt-3 p-0 border-l border-slate-200 dark:border-slate-800">
+                            <ul className="list-none m-0 mt-3 p-0 border-l border-rule">
                                 {array_map(fn ($r) => (
                                     <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-1.5 text-sm min-w-0">
-                                        <time className="tabular-nums text-slate-400 dark:text-slate-500">{When::date($r->recordedAt)}</time>
-                                        <span className="text-slate-700 dark:text-slate-300 break-words min-w-0">
+                                        <time className="font-mono text-[11px] tabular-nums text-muted">{When::date($r->recordedAt)}</time>
+                                        <span className="text-ink break-words min-w-0">
                                             {'' !== $r->summary ? $r->summary : ($r->id === $oldestRevId ? ($en ? 'Created' : '新規作成') : ($en ? 'Updated' : '更新'))}
                                         </span>
                                     </li>
