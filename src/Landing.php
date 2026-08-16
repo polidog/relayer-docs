@@ -65,6 +65,7 @@ final class Landing
      *     sampleRequest: string,
      *     sampleResponse: string,
      *     routes: list<array{0: string, 1: string}>,
+     *     routesLegend: list<array{0: string, 1: string}>,
      *     routesNote: string,
      *     specs: list<array{key: string, title: string, body: string, slug: string}>,
      *     specsMore: string,
@@ -86,9 +87,10 @@ final class Landing
     {
         return [
             'eyebrow' => 'Relayer — PHP full-stack framework',
-            'headline' => ['PHP のファイルを置く。', 'それが、URL になる。'],
+            'headline' => ['Not Web MVC.', 'Component ベースの PHP。'],
             'lead' => 'Relayer は Next.js の App Router に着想を得た、規約重視の PHP フルスタックフレームワークです。'
-                . 'ルーティング・API・サーバーアクション・認証・キャッシュ・DB を、ひとつの boot エントリにまとめます。ビルドステップはありません。',
+                . 'ディレクトリ構造がそのまま URL になり、各ルートは Controller ではなく、Element ツリーを返す Component として書きます。'
+                . 'ルーティング・API・サーバーアクション・認証・キャッシュ・DB は、ひとつの boot エントリにまとまります。ビルドステップはありません。',
             'install' => 'composer require polidog/relayer',
             'spec' => [
                 ['Language', 'PHP 8.5 以上'],
@@ -100,6 +102,7 @@ final class Landing
             'figures' => [
                 'lifecycle' => 'リクエストの通り道',
                 'routes' => '配置 = URL',
+                'legend' => '.psx とファイル規約',
             ],
             'lifecycleNote' => '1 リクエストが通るのはこの 4 か所だけです。ミドルウェアで共通処理、'
                 . 'ページで描画、キャッシュヘッダーを付けて、ドキュメントとして書き出す。',
@@ -122,12 +125,20 @@ final class Landing
                 ['src/Pages/sitemap.xml/route.php', '/sitemap.xml'],
                 ['src/Pages/middleware.php', '全ルートに適用'],
             ],
+            'routesLegend' => [
+                ['.psx', 'PHP に JSX をそのまま書ける拡張子。use-php が素の PHP へコンパイルするので、'
+                    . 'テンプレート言語も Node のビルドも挟みません。'],
+                ['page.psx / route.php', 'page.psx があればページ、route.php があれば JSON を返す API。'
+                    . '同じディレクトリに両方は置けません。'],
+                ['[slug]', '角括弧のディレクトリが動的セグメント。値は $ctx->params[\'slug\'] で受け取ります。'],
+            ],
             'routesNote' => 'これはこのサイト自身の src/Pages です。ルーティング設定ファイルはありません。',
             'specs' => [
                 ['key' => 'Routing', 'title' => 'ファイルベースルーティング', 'slug' => 'routing-pages',
                     'body' => 'ディレクトリ構造がそのまま URL。page.psx がページ、route.php が API、[slug] が動的セグメント。'],
                 ['key' => 'View', 'title' => 'PSX — PHP に書く JSX', 'slug' => 'usephp',
-                    'body' => '.psx ファイルに JSX をそのまま書く。テンプレート言語も Node のビルドも挟みません。'],
+                    'body' => '.psx ファイルに JSX をそのまま書く。ページは Element を返す Component で、'
+                        . 'テンプレート言語も Node のビルドも挟みません。'],
                 ['key' => 'Actions', 'title' => 'サーバーアクション', 'slug' => 'server-actions',
                     'body' => 'フォームの送信先をサーバー側の関数に直結。JavaScript を書かずに更新できます。'],
                 ['key' => 'Data', 'title' => 'データベース', 'slug' => 'database',
@@ -139,7 +150,8 @@ final class Landing
             ],
             'specsMore' => 'ドキュメントを全部見る',
             'sample' => self::SAMPLE,
-            'sampleNote' => 'このファイルを置けば /hello/world が動きます。登録も設定も追加しません。',
+            'sampleNote' => 'このクロージャがページ Component です。置けば /hello/world が動き、'
+                . 'ルーターへの登録も設定ファイルも要りません。',
             'colophon' => [
                 ['Runtime', 'FrankenPHP シングルバイナリ / PHP 8.5'],
                 ['Image', '192 MB・コールドスタート 700 ms'],
@@ -157,8 +169,9 @@ final class Landing
     {
         return [
             'eyebrow' => 'Relayer — PHP full-stack framework',
-            'headline' => ['Drop a PHP file in.', 'It becomes a route.'],
+            'headline' => ['Not Web MVC.', 'Component-based PHP.'],
             'lead' => 'Relayer is a convention-first PHP full-stack framework inspired by the Next.js App Router. '
+                . 'The directory tree is the URL space, and every route is written not as a controller but as a component that returns an element tree. '
                 . 'Routing, APIs, server actions, authentication, caching and the database are wired into a single boot entry. No build step.',
             'install' => 'composer require polidog/relayer',
             'spec' => [
@@ -171,6 +184,7 @@ final class Landing
             'figures' => [
                 'lifecycle' => 'The path of a request',
                 'routes' => 'Placement is the URL',
+                'legend' => '.psx and the file conventions',
             ],
             'lifecycleNote' => 'A request passes through four places, and no others: shared work in the middleware, '
                 . 'rendering in the page, cache headers, then the document that goes out.',
@@ -193,12 +207,20 @@ final class Landing
                 ['src/Pages/sitemap.xml/route.php', '/sitemap.xml'],
                 ['src/Pages/middleware.php', 'every route'],
             ],
+            'routesLegend' => [
+                ['.psx', 'The extension that lets you write JSX inside PHP. use-php compiles it to plain PHP, '
+                    . 'so there is no template language and no Node build in the middle.'],
+                ['page.psx / route.php', 'A directory with a page.psx is a page; one with a route.php is a JSON API. '
+                    . 'Never both in the same directory.'],
+                ['[slug]', 'A bracketed directory is a dynamic segment, read back as $ctx->params[\'slug\'].'],
+            ],
             'routesNote' => 'That is this site’s own src/Pages. There is no routing configuration file.',
             'specs' => [
                 ['key' => 'Routing', 'title' => 'File-based routing', 'slug' => 'routing-pages',
                     'body' => 'The directory tree is the URL space. page.psx is a page, route.php is an API, [slug] is a dynamic segment.'],
                 ['key' => 'View', 'title' => 'PSX — JSX, written in PHP', 'slug' => 'usephp',
-                    'body' => 'Write JSX directly in a .psx file. No template language, no Node build in the middle.'],
+                    'body' => 'Write JSX directly in a .psx file. A page is a component returning an element — '
+                        . 'no template language, no Node build in the middle.'],
                 ['key' => 'Actions', 'title' => 'Server actions', 'slug' => 'server-actions',
                     'body' => 'Point a form straight at a server-side function and update state without writing JavaScript.'],
                 ['key' => 'Data', 'title' => 'Database', 'slug' => 'database',
@@ -210,7 +232,8 @@ final class Landing
             ],
             'specsMore' => 'Read every page',
             'sample' => self::SAMPLE,
-            'sampleNote' => 'Save that file and /hello/world responds. Nothing to register, nothing to configure.',
+            'sampleNote' => 'That closure is the page component. Save the file and /hello/world responds — '
+                . 'nothing to register, nothing to configure.',
             'colophon' => [
                 ['Runtime', 'FrankenPHP single binary / PHP 8.5'],
                 ['Image', '192 MB, 700 ms cold start'],
