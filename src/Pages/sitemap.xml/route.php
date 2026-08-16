@@ -12,8 +12,9 @@ use Polidog\Relayer\Http\Response;
 /**
  * XML sitemap: GET /sitemap.xml (referenced from /robots.txt).
  *
- * Lists the indexable content URLs only — home, the changelog, and
- * every doc page. The search page (`/search`), the JSON API and the
+ * Lists the indexable content URLs only — the landing page, the doc
+ * index, the changelog, and every doc page. The search page
+ * (`/search`), the JSON API and the
  * OG image route are deliberately excluded: thin/duplicate or
  * non-content, they would only waste crawl budget.
  *
@@ -96,6 +97,7 @@ return [
         $urls = [];
         foreach (I18n::locales() as $loc) {
             $urls[] = $url($base . I18n::path($loc, '/'), $corpusDate, 'weekly', '1.0');
+            $urls[] = $url($base . I18n::path($loc, '/docs'), $corpusDate, 'weekly', '0.9');
             $urls[] = $url($base . I18n::path($loc, '/changelog'), $corpusDate, 'weekly', '0.5');
             foreach ($docs as $d) {
                 $urls[] = $url(

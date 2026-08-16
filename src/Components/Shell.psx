@@ -12,13 +12,15 @@ use Polidog\UsePhp\Storage\StorageType;
 use function Polidog\UsePhp\Runtime\fc;
 
 /**
- * The doc shell: sidebar (search + category nav) | content. Tailwind
- * utilities, dark-mode aware. Shared by every page so the chrome stays
- * DRY.
+ * The doc shell: sidebar (search + category nav) | content sheet. It
+ * also owns the page container — the layout hands pages a bare
+ * full-width slot so the landing page can run full-bleed bands, so
+ * every Shell-composed page gets its gutter from here.
  *
  * Props: store (DocStore), active (?string slug), locale (string,
- * default 'ja'), path (string, current request path for the language
- * switcher), children.
+ * default 'ja'), children. The language switcher is NOT here — it moved
+ * into the header (src/Pages/layout.psx) so the landing page and the
+ * index, which compose no Shell, can switch too.
  *
  * Wrapped in fc(..., StorageType::Memory) for the same reason as
  * SearchForm: this shell is stateless, but use-php's default
@@ -32,33 +34,21 @@ return fc(
     $store = $props['store'];
     $active = $props['active'] ?? null;
     $locale = $props['locale'] ?? I18n::DEFAULT;
-    $path = $props['path'] ?? '/';
     $groups = Nav::groups($store, $locale);
 
-    $swBase = 'px-2 py-0.5 rounded text-xs font-semibold no-underline ';
-    $swOn = $swBase . 'bg-yellow-300 text-slate-900';
-    $swOff = $swBase . 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white';
-
-    $grid = 'grid gap-8 items-start grid-cols-1 md:grid-cols-[244px_minmax(0,1fr)]';
-
-    $linkBase = 'block px-2.5 py-1.5 rounded-md text-sm no-underline ';
-    $linkOff = $linkBase . 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white';
-    $linkOn = $linkBase . 'bg-yellow-50 text-yellow-600 font-semibold dark:bg-yellow-500/10 dark:text-yellow-200';
+    $linkBase = 'block pl-3 py-1.5 text-sm no-underline border-l ';
+    $linkOff = $linkBase . 'border-rule text-muted hover:text-draft hover:border-draft';
+    $linkOn = $linkBase . 'border-draft border-l-2 text-draft font-medium bg-draft/[0.07]';
 
     return (
-        <div className={$grid}>
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-10 grid gap-8 md:gap-10 items-start grid-cols-1 md:grid-cols-[228px_minmax(0,1fr)]">
             <aside id="sidebar" className="hidden md:block md:sticky md:top-20 self-start">
-                {I18n::bilingual() ? (
-                    <div className="flex gap-1 mb-3 justify-end">
-                        <a href={I18n::switchTo('ja', $path)} className={I18n::DEFAULT === $locale ? $swOn : $swOff} hrefLang="ja">日本語</a>
-                        <a href={I18n::switchTo('en', $path)} className={'en' === $locale ? $swOn : $swOff} hrefLang="en">EN</a>
-                    </div>
-                ) : null}
                 <SearchForm locale={$locale} />
-                <nav>
+
+                <nav className="mt-6">
                     {array_map(fn (array $g) => (
-                        <div className="mb-4">
-                            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-400 mb-1.5">{I18n::category($locale, $g['category'])}</div>
+                        <div className="mb-6">
+                            <div className="font-mono text-[10px] font-medium tracking-[0.18em] uppercase text-muted mb-2">{I18n::category($locale, $g['category'])}</div>
                             <ul className="list-none m-0 p-0">
                                 {array_map(fn ($d) => (
                                     <li>
@@ -74,7 +64,7 @@ return fc(
                 </nav>
             </aside>
 
-            <main className="min-w-0 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-8 md:px-10">
+            <main className="min-w-0 bp-sheet border border-rule bg-sheet px-4 py-8 md:px-10 md:py-10">
                 {$props['children'] ?? null}
             </main>
         </div>

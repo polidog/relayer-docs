@@ -30,16 +30,52 @@ final class DocumentFactory
 {
     public static function create(): HtmlDocument
     {
+        // Typefaces for the blueprint direction: IBM Plex Sans Condensed for
+        // display (drafting-sheet headlines), IBM Plex Sans for body, IBM Plex
+        // Mono for the labels/eyebrows/figure captions that carry the
+        // technical-drawing voice. Latin only — Japanese falls back to the
+        // system gothic, which keeps the payload small (a JP webfont is
+        // megabytes) and mixes cleanly with Plex.
+        $fonts = <<<'HTML'
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+            HTML;
+
         // Tailwind via the Play CDN (+ typography plugin) — no Node/build step,
         // honoring Relayer's "no build" rule while still being Tailwind-based.
         // Class-strategy dark mode with a no-FOUC init that runs before paint
         // and a delegated toggle handler for the header button.
+        //
+        // The palette is NOT hard-coded per utility: every color resolves to a
+        // CSS custom property (`--bp-*`, defined below for both themes), so
+        // `bg-sheet text-ink border-rule` is theme-correct without a `dark:`
+        // twin on every element. The vars hold `R G B` triplets so Tailwind's
+        // `<alpha-value>` slot still works (`bg-draft/10`).
         $tailwind = <<<'HTML'
             <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
             <script>
               tailwind.config = {
                 darkMode: 'class',
-                theme: { extend: { fontFamily: { sans: ['-apple-system','BlinkMacSystemFont','Segoe UI','Hiragino Sans','Noto Sans JP','Yu Gothic UI','Meiryo','Roboto','sans-serif'] } } }
+                theme: {
+                  extend: {
+                    colors: {
+                      paper: 'rgb(var(--bp-paper) / <alpha-value>)',
+                      sheet: 'rgb(var(--bp-sheet) / <alpha-value>)',
+                      ink:   'rgb(var(--bp-ink) / <alpha-value>)',
+                      muted: 'rgb(var(--bp-muted) / <alpha-value>)',
+                      rule:  'rgb(var(--bp-rule) / <alpha-value>)',
+                      draft: 'rgb(var(--bp-draft) / <alpha-value>)',
+                      mark:  'rgb(var(--bp-mark) / <alpha-value>)',
+                      plate: 'rgb(var(--bp-plate) / <alpha-value>)'
+                    },
+                    fontFamily: {
+                      sans: ['IBM Plex Sans','Hiragino Sans','Noto Sans JP','Yu Gothic UI','Meiryo','sans-serif'],
+                      display: ['IBM Plex Sans Condensed','IBM Plex Sans','Hiragino Sans','Noto Sans JP','sans-serif'],
+                      mono: ['IBM Plex Mono','ui-monospace','SFMono-Regular','Menlo','monospace']
+                    }
+                  }
+                }
               };
             </script>
             <script>
@@ -61,6 +97,126 @@ final class DocumentFactory
             </script>
             HTML;
 
+        // The design system itself: a cyanotype/drafting-sheet direction.
+        // Light mode is drafting paper (cool white, blue ink); dark mode is a
+        // blue-print negative (deep navy, not black). Everything that isn't a
+        // Tailwind utility lives here — the graph-paper ground, the corner
+        // registration marks, the dotted TOC leaders, the lifecycle-diagram
+        // motion, and the typography-plugin variables.
+        $blueprint = <<<'HTML'
+            <style>
+              :root {
+                --bp-paper: 242 246 250;
+                --bp-sheet: 255 255 255;
+                --bp-ink: 13 33 51;
+                --bp-muted: 92 114 135;
+                --bp-rule: 200 214 226;
+                --bp-draft: 18 100 165;
+                --bp-mark: 200 63 33;
+                --bp-plate: 6 22 38;
+                --bp-dot: rgba(20, 90, 150, .17);
+                color-scheme: light;
+              }
+              .dark {
+                --bp-paper: 6 21 36;
+                --bp-sheet: 10 31 50;
+                --bp-ink: 206 226 241;
+                --bp-muted: 126 157 182;
+                --bp-rule: 28 60 86;
+                --bp-draft: 84 174 232;
+                --bp-mark: 255 124 94;
+                --bp-plate: 3 15 27;
+                --bp-dot: rgba(110, 180, 240, .15);
+                color-scheme: dark;
+              }
+              body {
+                background-color: rgb(var(--bp-paper));
+                background-image: radial-gradient(var(--bp-dot) 1px, transparent 1px);
+                background-size: 24px 24px;
+                background-position: -1px -1px;
+              }
+              ::selection { background: rgb(var(--bp-draft) / .22); }
+              :focus-visible { outline: 2px solid rgb(var(--bp-draft)); outline-offset: 2px; }
+
+              /* Registration marks: two opposite corner brackets on a panel,
+                 the way a drawing sheet is cropped. Two, not four — one
+                 accessory removed. */
+              .bp-sheet { position: relative; }
+              .bp-sheet::before, .bp-sheet::after {
+                content: ''; position: absolute; width: 9px; height: 9px;
+                border: 0 solid rgb(var(--bp-draft)); pointer-events: none;
+              }
+              .bp-sheet::before { top: -1px; left: -1px; border-left-width: 2px; border-top-width: 2px; }
+              .bp-sheet::after { bottom: -1px; right: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+
+              /* Table-of-contents leader: title ....... slug */
+              .bp-leader {
+                flex: 1 1 auto; min-width: 1.25rem; align-self: center;
+                border-bottom: 1px dotted rgb(var(--bp-rule));
+              }
+
+              /* FIG.01 — the signal travelling down the request rail. */
+              @keyframes bp-signal {
+                0%   { top: 0;    opacity: 0 }
+                8%   { opacity: 1 }
+                92%  { opacity: 1 }
+                100% { top: 100%; opacity: 0 }
+              }
+              .bp-signal { animation: bp-signal 4s cubic-bezier(.45,.05,.55,.95) infinite; }
+              @media (prefers-reduced-motion: reduce) {
+                .bp-signal { animation: none; top: 50%; opacity: .7 }
+                * { scroll-behavior: auto !important }
+              }
+
+              /* Long-form body copy, tuned to the same palette. The plugin is
+                 driven entirely through its own custom properties so there is
+                 no `dark:prose-invert` twin to keep in sync. The doubled class
+                 is deliberate: the Play CDN injects the plugin's own `.prose`
+                 rule (with its default gray `--tw-prose-*` values) after this
+                 stylesheet, and at equal specificity the later rule would win
+                 — leaving near-black text on the dark theme. */
+              .prose.prose {
+                --tw-prose-body: rgb(var(--bp-ink));
+                --tw-prose-headings: rgb(var(--bp-ink));
+                --tw-prose-lead: rgb(var(--bp-muted));
+                --tw-prose-links: rgb(var(--bp-draft));
+                --tw-prose-bold: rgb(var(--bp-ink));
+                --tw-prose-counters: rgb(var(--bp-muted));
+                --tw-prose-bullets: rgb(var(--bp-rule));
+                --tw-prose-hr: rgb(var(--bp-rule));
+                --tw-prose-quotes: rgb(var(--bp-ink));
+                --tw-prose-quote-borders: rgb(var(--bp-draft));
+                --tw-prose-captions: rgb(var(--bp-muted));
+                --tw-prose-code: rgb(var(--bp-ink));
+                --tw-prose-pre-code: #d7e6f4;
+                --tw-prose-pre-bg: rgb(var(--bp-plate));
+                --tw-prose-th-borders: rgb(var(--bp-rule));
+                --tw-prose-td-borders: rgb(var(--bp-rule));
+              }
+              .prose :is(h1, h2, h3, h4) {
+                font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+                letter-spacing: -.012em;
+              }
+              .prose h2 {
+                margin-top: 2.4em; padding-top: .8em;
+                border-top: 1px solid rgb(var(--bp-rule));
+              }
+              .prose a { text-underline-offset: 3px; text-decoration-thickness: 1px; }
+              .prose code::before, .prose code::after { content: none; }
+              .prose :not(pre) > code {
+                font-weight: 500; padding: .1em .35em;
+                background: rgb(var(--bp-draft) / .09);
+                border: 1px solid rgb(var(--bp-draft) / .2);
+              }
+              .prose pre {
+                border-radius: 0; border: 1px solid rgb(var(--bp-rule));
+              }
+              .prose :is(img, blockquote, table, figure) { border-radius: 0; }
+              .prose blockquote { font-style: normal; border-left-width: 2px; }
+              .prose thead th { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: .82em; letter-spacing: .04em; text-transform: uppercase; }
+            </style>
+            HTML;
+
         // Syntax highlighting theme + init for highlight.js. The library itself
         // (`highlight.min.js`) is NOT loaded here: only the doc page has
         // `<pre><code>` blocks, so it declares the lib per-page via
@@ -72,14 +228,15 @@ final class DocumentFactory
         // init lives here; it's guarded by `if (!window.hljs)` so it's an inert
         // no-op on routes that never load the library (home, search, 404). The
         // Markdown renderer emits `<pre><code class="language-xxx">`, which
-        // highlight.js targets directly. Code blocks are always dark (the doc
-        // page forces `prose-pre:bg-slate-900`), so a single dark theme is used
-        // and `.hljs` is made transparent so the existing `pre` keeps providing
-        // the background/padding. `dotenv`/`env` fences alias to `ini`.
+        // highlight.js targets directly. Code plates are always dark (the
+        // `--tw-prose-pre-bg` above is the same ink in both themes), so a
+        // single dark theme is used and `.hljs` is made transparent so the
+        // existing `pre` keeps providing the background/padding.
+        // `dotenv`/`env` fences alias to `ini`.
         $highlight = <<<'HTML'
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css">
             <style>
-              .prose pre code.hljs { background: transparent; padding: 0; }
+              pre code.hljs { background: transparent; padding: 0; }
             </style>
             <script>
               (function () {
@@ -147,7 +304,9 @@ final class DocumentFactory
             ->setLang('ja')
             ->setTitle('Relayer ドキュメント')
             ->disableDefaultStyles()
+            ->addHeadHtml($fonts)
             ->addHeadHtml($tailwind)
+            ->addHeadHtml($blueprint)
             ->addHeadHtml($highlight)
             ->addHeadHtml($nav)
             ->addHeadHtml($og);

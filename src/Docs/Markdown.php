@@ -190,7 +190,7 @@ final class Markdown
         $children = $this->inline($text);
         $children[] = H::a(
             href: '#' . $id,
-            className: 'ml-2 no-underline text-slate-300 opacity-0 hover:opacity-100',
+            className: 'ml-2 no-underline text-draft opacity-0 hover:opacity-100',
             children: '#',
         );
 

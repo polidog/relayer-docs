@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Components;
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Storage\StorageType;
+
+use function Polidog\UsePhp\Runtime\fc;
+
+/**
+ * A drawing caption: the figure number, a leader rule, and the title —
+ * `FIG.02 ──────── 配置 = URL`. Every figure and section on the site is
+ * labelled this way, so the label markup lives in one place.
+ *
+ * Props: fig (e.g. 'Fig.02' or 'Index'), title (string), className
+ * (extra classes for the wrapper, optional).
+ *
+ * Memory storage for the same reason as Shell / SearchForm: use-php's
+ * default StorageType::Session would start a PHP session on render and
+ * emit `Set-Cookie: PHPSESSID`, which makes the CDN bypass its cache on
+ * every page this appears on.
+ */
+return fc(
+    function (array $props) {
+        $wrap = 'flex items-baseline gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-muted';
+
+        return (
+        <div className={$wrap . ' ' . ($props['className'] ?? '')}>
+            <span className="text-draft whitespace-nowrap">{$props['fig'] ?? ''}</span>
+            <span className="bp-leader"></span>
+            <span className="text-ink whitespace-nowrap overflow-hidden text-ellipsis">{$props['title'] ?? ''}</span>
+        </div>
+        );
+    },
+    storageType: StorageType::Memory,
+);

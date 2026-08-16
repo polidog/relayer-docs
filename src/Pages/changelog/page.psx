@@ -37,8 +37,8 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
     $offset = ($page - 1) * $perPage;
 
     // Page 1 is the canonical `/changelog`; deeper pages carry `?page=N`
-    // so the canonical, the language switcher (Shell) and the cache key
-    // all agree on which slice is being served.
+    // so the canonical URL and the cache key agree on which slice is
+    // being served.
     $pagePath = '/changelog' . ($page > 1 ? '?page=' . $page : '');
 
     $ctx->metadata(Meta::forPage(
@@ -65,34 +65,35 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
         $pageHref = static fn (int $p): string => I18n::path($locale, '/changelog' . ($p > 1 ? '?page=' . $p : ''));
         $prevHref = $page > 1 ? $pageHref($page - 1) : null;
         $nextHref = $page < $pageCount ? $pageHref($page + 1) : null;
-        $navBtn = 'px-3 py-1.5 rounded border text-sm no-underline transition-colors';
-        $navOn = ' border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300';
-        $navOff = ' border-slate-100 dark:border-slate-800 text-slate-300 dark:text-slate-700 cursor-default';
+        $navBtn = 'px-3.5 py-2 border font-mono text-[10px] uppercase tracking-[0.16em] no-underline';
+        $navOn = ' border-rule text-muted hover:border-draft hover:text-draft';
+        $navOff = ' border-rule/50 text-muted/40 cursor-default';
 
         return (
-            <Shell store={$store} active={null} locale={$locale} path={'/changelog' . ($page > 1 ? '?page=' . $page : '')}>
-                <section className="py-2">
-                    <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-white">{$en ? 'Changelog' : '更新履歴'}</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
+            <Shell store={$store} active={null} locale={$locale}>
+                <section>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">{$en ? 'Revision register' : '改訂記録'}</div>
+                    <h1 className="mt-3 mb-2 font-display text-3xl font-bold tracking-[-0.02em] text-ink">{$en ? 'Changelog' : '更新履歴'}</h1>
+                    <p className="text-muted mb-8 text-sm">
                         {$en ? 'Every article change, newest first.' : '全記事の変更を新しい順に表示しています。'}
                     </p>
 
                     {[] === $revs ? (
-                        <p className="text-slate-500 dark:text-slate-400">{$en ? 'No history yet.' : 'まだ履歴がありません。'}</p>
+                        <p className="text-muted text-sm">{$en ? 'No history yet.' : 'まだ履歴がありません。'}</p>
                     ) : (
-                        <ul className="list-none m-0 p-0 border-l border-slate-200 dark:border-slate-800">
+                        <ul className="list-none m-0 p-0 border-t border-rule">
                             {array_map(fn ($r) => (
-                                <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pl-4 py-2 border-b border-slate-100 dark:border-slate-800/60 min-w-0">
-                                    <time className="tabular-nums text-sm text-slate-400 dark:text-slate-500 w-[88px]">{When::date($r->recordedAt)}</time>
+                                <li className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2.5 border-b border-rule min-w-0">
+                                    <time className="font-mono text-[11px] tabular-nums text-muted w-[86px] shrink-0">{When::date($r->recordedAt)}</time>
                                     <a
                                         href={I18n::path($locale, '/docs/' . $r->slug)}
-                                        className="font-medium text-slate-800 dark:text-slate-200 hover:text-yellow-600 dark:hover:text-yellow-300 no-underline break-words min-w-0"
+                                        className="font-medium text-ink hover:text-draft no-underline break-words min-w-0"
                                     >{$r->title}</a>
                                     {'' !== $r->category ? (
-                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">{I18n::category($locale, $r->category)}</span>
+                                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{I18n::category($locale, $r->category)}</span>
                                     ) : null}
                                     {'' !== $r->summary ? (
-                                        <span className="w-full text-sm text-slate-500 dark:text-slate-400 break-words min-w-0">{$r->summary}</span>
+                                        <span className="w-full pl-[102px] text-sm text-muted break-words min-w-0">{$r->summary}</span>
                                     ) : null}
                                 </li>
                             ), $revs)}
@@ -100,16 +101,16 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                     )}
 
                     {$pageCount > 1 ? (
-                        <nav className="flex items-center justify-between gap-4 mt-8" aria-label={$en ? 'Pagination' : 'ページ送り'}>
+                        <nav className="flex items-center justify-between gap-4 mt-10" aria-label={$en ? 'Pagination' : 'ページ送り'}>
                             {null !== $prevHref
-                                ? (<a href={$prevHref} className={$navBtn . $navOn} rel="prev">{$en ? '← Newer' : '← 新しい'}</a>)
-                                : (<span className={$navBtn . $navOff} aria-disabled="true">{$en ? '← Newer' : '← 新しい'}</span>)}
-                            <span className="text-sm text-slate-500 dark:text-slate-400 tabular-nums">
-                                {$en ? ('Page ' . $page . ' of ' . $pageCount) : ($page . ' / ' . $pageCount . ' ページ')}
+                                ? (<a href={$prevHref} className={$navBtn . $navOn} rel="prev">{$en ? '◂ Newer' : '◂ 新しい'}</a>)
+                                : (<span className={$navBtn . $navOff} aria-disabled="true">{$en ? '◂ Newer' : '◂ 新しい'}</span>)}
+                            <span className="font-mono text-[11px] text-muted tabular-nums">
+                                {$page . ' / ' . $pageCount}
                             </span>
                             {null !== $nextHref
-                                ? (<a href={$nextHref} className={$navBtn . $navOn} rel="next">{$en ? 'Older →' : '古い →'}</a>)
-                                : (<span className={$navBtn . $navOff} aria-disabled="true">{$en ? 'Older →' : '古い →'}</span>)}
+                                ? (<a href={$nextHref} className={$navBtn . $navOn} rel="next">{$en ? 'Older ▸' : '古い ▸'}</a>)
+                                : (<span className={$navBtn . $navOff} aria-disabled="true">{$en ? 'Older ▸' : '古い ▸'}</span>)}
                         </nav>
                     ) : null}
                 </section>

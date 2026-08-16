@@ -11,9 +11,13 @@ use Polidog\UsePhp\Html\H;
 use Polidog\UsePhp\Runtime\Element;
 
 /**
- * Site chrome only — header (with the dark-mode toggle) and footer,
- * written as PSX with Tailwind utility classes. The data-driven
- * sidebar/search/TOC live in the Shell component, composed by pages.
+ * Site chrome only — the header rule and the title-block footer, in the
+ * drafting-sheet direction the whole site is drawn in: hairline rules,
+ * monospace labels, square corners, no shadows.
+ *
+ * The children slot is deliberately unconstrained (no container, no
+ * padding): the landing page runs full-bleed section bands, while the
+ * documentation pages wrap themselves in the Shell component's sheet.
  * Dependency-free so it instantiates with `new`.
  */
 final class RootLayout extends LayoutComponent
@@ -32,44 +36,94 @@ final class RootLayout extends LayoutComponent
             : I18n::DEFAULT;
         $en = 'en' === $locale;
 
+        $nav = 'font-mono text-[11px] uppercase tracking-[0.16em] text-muted hover:text-draft no-underline';
+        $field = 'text-[10px] font-mono uppercase tracking-[0.18em] text-muted';
+
+        // Language switch lives in the chrome (not the doc sidebar) so it
+        // is reachable from the landing page and the index too. The layout
+        // has no Request injected, so the *original* URL — the one that
+        // still carries any `/{locale}` prefix, which is what switchTo()
+        // needs — is read from the server vars, the same way
+        // src/Pages/middleware.php reads it.
+        $uri = \is_string($_SERVER['REQUEST_URI'] ?? null) ? $_SERVER['REQUEST_URI'] : '/';
+        $here = \parse_url($uri, \PHP_URL_PATH);
+        $here = \is_string($here) && '' !== $here ? $here : '/';
+        $query = \parse_url($uri, \PHP_URL_QUERY);
+        $query = \is_string($query) && '' !== $query ? '?' . $query : '';
+        $other = $en ? I18n::DEFAULT : 'en';
+
         return (
-            <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-200">
-                <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-6 h-14 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
-                    <a href={I18n::path($locale, '/')} className="flex items-center gap-2.5 font-bold text-slate-900 dark:text-white no-underline">
-                        <span className="grid place-items-center w-7 h-7 rounded-md bg-slate-900 text-yellow-300 font-extrabold ring-1 ring-yellow-300/40">R</span>
-                        <span>Relayer</span>
+            <div className="min-h-screen flex flex-col text-ink font-sans">
+                <header className="sticky top-0 z-20 flex items-center justify-between gap-4 px-4 md:px-6 h-14 border-b border-rule bg-paper/90 backdrop-blur">
+                    <a href={I18n::path($locale, '/')} className="flex items-center gap-2.5 no-underline group">
+                        <svg viewBox="0 0 24 24" className="w-[22px] h-[22px] text-draft" fill="none" aria-hidden="true">
+                            <rect x="1.5" y="1.5" width="21" height="21" stroke="currentColor" strokeWidth="1.25" />
+                            <path d="M5 17.5 H11.5 L17 7" stroke="currentColor" strokeWidth="1.25" />
+                            <rect x="15" y="5" width="4" height="4" fill="currentColor" />
+                        </svg>
+                        <span className="font-display font-bold tracking-[0.08em] text-ink uppercase">Relayer</span>
+                        <span className="hidden sm:inline border border-rule px-1.5 py-px font-mono text-[9px] uppercase tracking-[0.16em] text-muted">PHP</span>
                     </a>
-                    <nav className="flex items-center gap-4 text-sm">
-                        <a href={I18n::path($locale, '/changelog')} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white no-underline">{$en ? 'Changelog' : '更新履歴'}</a>
+                    <nav className="flex items-center gap-3 sm:gap-4 md:gap-6">
+                        <a href={I18n::path($locale, '/docs')} className={$nav}>Docs</a>
+                        <a href={I18n::path($locale, '/changelog')} className={$nav . ' hidden sm:inline'}>Changelog</a>
                         <a
                             href="https://github.com/polidog/relayer"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white no-underline"
+                            className={$nav}
                         >GitHub</a>
+                        {I18n::bilingual() ? (
+                            <a
+                                href={I18n::switchTo($other, $here) . $query}
+                                hrefLang={$other}
+                                className="grid place-items-center h-8 px-2 border border-rule font-mono text-[10px] uppercase tracking-[0.14em] text-muted hover:text-draft hover:border-draft no-underline"
+                            >{$en ? 'JA' : 'EN'}</a>
+                        ) : null}
                         <button
                             id="theme-toggle"
                             type="button"
                             aria-label={$en ? 'Toggle theme' : 'テーマ切替'}
-                            className="ml-1 grid place-items-center w-8 h-8 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                            className="grid place-items-center w-8 h-8 border border-rule text-muted hover:text-draft hover:border-draft"
                         >
-                            <span className="dark:hidden">🌙</span>
-                            <span className="hidden dark:inline">☀️</span>
+                            <span className="dark:hidden text-xs">☾</span>
+                            <span className="hidden dark:inline text-xs">☀</span>
                         </button>
                         <button
                             id="nav-toggle"
                             type="button"
                             aria-label={$en ? 'Menu' : 'メニュー'}
-                            className="md:hidden grid place-items-center w-9 h-9 -mr-1 rounded-md text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                            className="md:hidden grid place-items-center w-8 h-8 border border-rule text-muted hover:text-draft hover:border-draft text-xs"
                         >☰</button>
                     </nav>
                 </header>
 
-                <div className="w-full max-w-7xl mx-auto px-3 py-7 md:px-6 flex-1">{$this->getChildren()}</div>
+                <div className="flex-1 w-full">{$this->getChildren()}</div>
 
-                <footer className="text-center py-6 text-[13px] text-slate-500 border-t border-slate-200 dark:border-slate-800">
-                    <span>Relayer Documentation</span>
-                    <span className="opacity-70"> — built with Relayer + Turso</span>
+                <footer className="border-t border-rule bg-sheet/60">
+                    <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 grid gap-6 grid-cols-2 md:grid-cols-4">
+                        <div>
+                            <div className={$field}>{$en ? 'Project' : 'Project'}</div>
+                            <div className="mt-1 text-sm">Relayer {$en ? 'Documentation' : 'ドキュメント'}</div>
+                        </div>
+                        <div>
+                            <div className={$field}>{$en ? 'Drawn with' : 'Drawn with'}</div>
+                            <div className="mt-1 text-sm">Relayer + use-php</div>
+                        </div>
+                        <div>
+                            <div className={$field}>{$en ? 'Content store' : 'Content store'}</div>
+                            <div className="mt-1 text-sm">Turso (libSQL)</div>
+                        </div>
+                        <div>
+                            <div className={$field}>Source</div>
+                            <a
+                                href="https://github.com/polidog/relayer"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-1 block text-sm text-draft no-underline hover:underline"
+                            >github.com/polidog/relayer</a>
+                        </div>
+                    </div>
                 </footer>
             </div>
         );

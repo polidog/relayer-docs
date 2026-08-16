@@ -33,13 +33,14 @@ final class OgImage
 
     private const PAD = 90;
 
-    // Site palette (Tailwind slate / yellow), matching the dark theme.
-    private const BG = [15, 23, 42];        // slate-900
-    private const PANEL = [30, 41, 59];     // slate-800 (badge fill)
-    private const ACCENT = [253, 224, 71];  // yellow-300
-    private const TITLE = [248, 250, 252];  // slate-50
-    private const MUTED = [148, 163, 184];  // slate-400
-    private const FAINT = [100, 116, 139];  // slate-500
+    // Site palette — the blueprint/cyanotype dark theme (`--bp-*` in
+    // App\DocumentFactory). Keep these in step with that stylesheet.
+    private const BG = [6, 21, 36];         // --bp-paper (dark)
+    private const PANEL = [28, 60, 86];     // --bp-rule (dark)
+    private const ACCENT = [84, 174, 232];  // --bp-draft (dark)
+    private const TITLE = [214, 231, 244];
+    private const MUTED = [126, 157, 182];  // --bp-muted (dark)
+    private const FAINT = [92, 120, 145];
 
     /**
      * @param string $title   the card headline (doc / page title)
@@ -93,27 +94,24 @@ final class OgImage
         return (string) \ob_get_clean();
     }
 
+    /**
+     * The drafting mark: a square frame with the relay vector inside —
+     * the same glyph the site header draws as inline SVG, at 70px.
+     * Square corners, no fill: the card is a drawing, not a badge.
+     */
     private static function drawBrand(\GdImage $im, string $font): void
     {
         $x = self::PAD;
         $y = 110;
-        $s = 70; // badge side
+        $s = 70;
 
-        self::roundedRect($im, $x, $y, $x + $s, $y + $s, 16, self::color($im, self::PANEL));
-        // Centered "R" in the badge.
-        $box = \imagettfbbox(40, 0, $font, 'R');
-        $rw = $box[2] - $box[0];
-        $rh = $box[1] - $box[7];
-        self::text(
-            $im,
-            40,
-            (int) ($x + ($s - $rw) / 2),
-            (int) ($y + ($s + $rh) / 2),
-            self::ACCENT,
-            $font,
-            'R',
-            true,
-        );
+        $accent = self::color($im, self::ACCENT);
+        \imagesetthickness($im, 3);
+        \imagerectangle($im, $x, $y, $x + $s, $y + $s, $accent);
+        \imageline($im, $x + 15, $y + 51, $x + 34, $y + 51, $accent);
+        \imageline($im, $x + 34, $y + 51, $x + 50, $y + 21, $accent);
+        \imagesetthickness($im, 1);
+        \imagefilledrectangle($im, $x + 44, $y + 15, $x + 56, $y + 27, $accent);
 
         self::text($im, 42, $x + $s + 26, $y + 50, self::TITLE, $font, 'Relayer', true);
     }
@@ -267,23 +265,5 @@ final class OgImage
         $c = \imagecolorallocate($im, $rgb[0], $rgb[1], $rgb[2]);
 
         return false === $c ? 0 : $c;
-    }
-
-    private static function roundedRect(
-        \GdImage $im,
-        int $x1,
-        int $y1,
-        int $x2,
-        int $y2,
-        int $r,
-        int $color,
-    ): void {
-        \imagefilledrectangle($im, $x1 + $r, $y1, $x2 - $r, $y2, $color);
-        \imagefilledrectangle($im, $x1, $y1 + $r, $x2, $y2 - $r, $color);
-        $d = $r * 2;
-        \imagefilledarc($im, $x1 + $r, $y1 + $r, $d, $d, 180, 270, $color, \IMG_ARC_PIE);
-        \imagefilledarc($im, $x2 - $r, $y1 + $r, $d, $d, 270, 360, $color, \IMG_ARC_PIE);
-        \imagefilledarc($im, $x1 + $r, $y2 - $r, $d, $d, 90, 180, $color, \IMG_ARC_PIE);
-        \imagefilledarc($im, $x2 - $r, $y2 - $r, $d, $d, 0, 90, $color, \IMG_ARC_PIE);
     }
 }
