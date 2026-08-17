@@ -44,19 +44,14 @@ final class DocumentFactory
 
         // Tailwind via the Play CDN (+ typography plugin) — no Node/build step,
         // honoring Relayer's "no build" rule while still being Tailwind-based.
-        // Class-strategy dark mode with a no-FOUC init that runs before paint
-        // and a delegated toggle handler for the header button.
-        //
         // The palette is NOT hard-coded per utility: every color resolves to a
-        // CSS custom property (`--bp-*`, defined below for both themes), so
-        // `bg-sheet text-ink border-rule` is theme-correct without a `dark:`
-        // twin on every element. The vars hold `R G B` triplets so Tailwind's
+        // CSS custom property (`--bp-*`, defined below), so the green direction
+        // stays centralized. The vars hold `R G B` triplets so Tailwind's
         // `<alpha-value>` slot still works (`bg-draft/10`).
         $tailwind = <<<'HTML'
             <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
             <script>
               tailwind.config = {
-                darkMode: 'class',
                 theme: {
                   extend: {
                     colors: {
@@ -78,56 +73,26 @@ final class DocumentFactory
                 }
               };
             </script>
-            <script>
-              (function () {
-                try {
-                  var t = localStorage.getItem('theme');
-                  if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                    document.documentElement.classList.add('dark');
-                  }
-                } catch (e) {}
-                document.addEventListener('click', function (e) {
-                  var b = e.target.closest && e.target.closest('#theme-toggle');
-                  if (!b) return;
-                  var r = document.documentElement;
-                  r.classList.toggle('dark');
-                  try { localStorage.setItem('theme', r.classList.contains('dark') ? 'dark' : 'light'); } catch (e) {}
-                });
-              })();
-            </script>
             HTML;
 
-        // The design system itself: a cyanotype/drafting-sheet direction.
-        // Light mode is drafting paper (cool white, blue ink); dark mode is a
-        // blue-print negative (deep navy, not black). Everything that isn't a
+        // The design system itself: a botanical drafting-sheet direction.
+        // Everything that isn't a
         // Tailwind utility lives here — the graph-paper ground, the corner
         // registration marks, the dotted TOC leaders, the lifecycle-diagram
         // motion, and the typography-plugin variables.
         $blueprint = <<<'HTML'
             <style>
               :root {
-                --bp-paper: 242 246 250;
+                --bp-paper: 243 247 241;
                 --bp-sheet: 255 255 255;
-                --bp-ink: 13 33 51;
-                --bp-muted: 92 114 135;
-                --bp-rule: 200 214 226;
-                --bp-draft: 18 100 165;
+                --bp-ink: 18 42 31;
+                --bp-muted: 86 113 96;
+                --bp-rule: 199 218 204;
+                --bp-draft: 24 128 78;
                 --bp-mark: 200 63 33;
-                --bp-plate: 6 22 38;
-                --bp-dot: rgba(20, 90, 150, .17);
+                --bp-plate: 9 34 25;
+                --bp-dot: rgba(35, 125, 80, .17);
                 color-scheme: light;
-              }
-              .dark {
-                --bp-paper: 6 21 36;
-                --bp-sheet: 10 31 50;
-                --bp-ink: 206 226 241;
-                --bp-muted: 126 157 182;
-                --bp-rule: 28 60 86;
-                --bp-draft: 84 174 232;
-                --bp-mark: 255 124 94;
-                --bp-plate: 3 15 27;
-                --bp-dot: rgba(110, 180, 240, .15);
-                color-scheme: dark;
               }
               body {
                 background-color: rgb(var(--bp-paper));
@@ -170,14 +135,12 @@ final class DocumentFactory
 
               /* Long-form body copy, tuned to the same palette. The plugin is
                  driven entirely through its own custom properties so there is
-                 no `dark:prose-invert` twin to keep in sync. The doubled class
                  is deliberate: the Play CDN injects the plugin's own `.prose`
                  rule (with its default gray `--tw-prose-*` values) after this
-                 stylesheet, and at equal specificity the later rule would win
-                 — leaving near-black text on the dark theme. Repeating the
-                 class only raises specificity; `.prose.prose` still matches an
-                 element whose class list contains `prose` once, so the markup
-                 stays a plain `class="prose"`. */
+                 stylesheet, and at equal specificity the later rule would win.
+                 Repeating the class only raises specificity; `.prose.prose`
+                 still matches an element whose class list contains `prose`
+                 once, so the markup stays a plain `class="prose"`. */
               .prose.prose {
                 --tw-prose-body: rgb(var(--bp-ink));
                 --tw-prose-headings: rgb(var(--bp-ink));
@@ -191,7 +154,7 @@ final class DocumentFactory
                 --tw-prose-quote-borders: rgb(var(--bp-draft));
                 --tw-prose-captions: rgb(var(--bp-muted));
                 --tw-prose-code: rgb(var(--bp-ink));
-                --tw-prose-pre-code: #d7e6f4;
+                --tw-prose-pre-code: #d8f0e4;
                 --tw-prose-pre-bg: rgb(var(--bp-plate));
                 --tw-prose-th-borders: rgb(var(--bp-rule));
                 --tw-prose-td-borders: rgb(var(--bp-rule));
@@ -265,8 +228,7 @@ final class DocumentFactory
         // Mobile nav: the sidebar is `hidden md:block`, so the hamburger
         // (#nav-toggle, md:hidden) toggles the `hidden` class on #sidebar.
         // Tapping a sidebar link closes it again on phones. Delegated so it
-        // works regardless of component render order (same pattern as the
-        // theme toggle).
+        // works regardless of component render order.
         $nav = <<<'HTML'
             <script>
               (function () {
@@ -294,6 +256,8 @@ final class DocumentFactory
         // og:locale is per-page now because the site is bilingual. The image
         // box mirrors App\Og\OgImage::WIDTH/HEIGHT — keep them in sync.
         $og = <<<'HTML'
+            <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+            <meta name="theme-color" content="#18804e">
             <meta property="og:type" content="website">
             <meta property="og:site_name" content="Relayer ドキュメント">
             <meta property="og:image:type" content="image/png">

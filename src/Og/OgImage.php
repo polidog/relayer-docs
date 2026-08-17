@@ -33,14 +33,14 @@ final class OgImage
 
     private const PAD = 90;
 
-    // Site palette — the blueprint/cyanotype dark theme (`--bp-*` in
+    // Site palette — green drafting direction (`--bp-*` in
     // App\DocumentFactory). Keep these in step with that stylesheet.
-    private const BG = [6, 21, 36];         // --bp-paper (dark)
-    private const PANEL = [28, 60, 86];     // --bp-rule (dark)
-    private const ACCENT = [84, 174, 232];  // --bp-draft (dark)
-    private const TITLE = [214, 231, 244];
-    private const MUTED = [126, 157, 182];  // --bp-muted (dark)
-    private const FAINT = [92, 120, 145];
+    private const BG = [9, 34, 25];          // --bp-plate
+    private const PANEL = [42, 92, 66];
+    private const ACCENT = [60, 196, 126];
+    private const TITLE = [230, 246, 236];
+    private const MUTED = [158, 204, 174];
+    private const FAINT = [112, 156, 130];
 
     /**
      * @param string $title   the card headline (doc / page title)

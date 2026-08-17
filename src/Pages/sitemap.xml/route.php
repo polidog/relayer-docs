@@ -97,7 +97,6 @@ return [
         $urls = [];
         foreach (I18n::locales() as $loc) {
             $urls[] = $url($base . I18n::path($loc, '/'), $corpusDate, 'weekly', '1.0');
-            $urls[] = $url($base . I18n::path($loc, '/docs'), $corpusDate, 'weekly', '0.9');
             $urls[] = $url($base . I18n::path($loc, '/changelog'), $corpusDate, 'weekly', '0.5');
             foreach ($docs as $d) {
                 $urls[] = $url(

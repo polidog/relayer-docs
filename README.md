@@ -6,11 +6,11 @@ Relayer 自身で作られた（ドッグフーディング）ドキュメント
 - **本文**: [Turso](https://turso.tech)（libSQL）を**唯一の正**として保持（中間ファイル無し）
 - **編集**: CLI `bin/docs`（`$EDITOR`）で Turso を直接読み書き
 - **表示/検索**: Relayer（PHP）が表示と SQLite FTS5（trigram）全文検索を担当
-- **UI**: Tailwind（Play CDN, ビルド不要）+ ダークモード。デザインは「青焼き図面
-  （ブループリント）」方向で、色はすべて `--bp-*` CSS 変数 →
+- **UI**: Tailwind（Play CDN, ビルド不要）。デザインは緑基調の図面方向で、
+  色はすべて `--bp-*` CSS 変数 →
   Tailwind の色トークン（`bg-sheet` / `text-ink` / `border-rule` / `text-draft`）
-  経由。`dark:` の二重指定は書かない（`src/DocumentFactory.php`）
-- **ページ構成**: `/` は Relayer 自体の LP、`/docs` が索引、`/docs/<slug>` が本文
+  経由（`src/DocumentFactory.php`）
+- **ページ構成**: `/` は Relayer 自体の LP、`/docs` は先頭ドキュメントへリダイレクト、`/docs/<slug>` が本文
 
 接続先は環境変数で自動切替：`TURSO_DATABASE_URL` があれば Turso、
 無ければローカル `var/docs.db`（資格情報ゼロで動作）。
@@ -70,7 +70,7 @@ src/Docs/                 ストア層 + Markdown→Element レンダラ
   Nav.php                 ナビ用データ（マークアップ無し）
 src/Landing.php           トップ（LP）の文言・図版データ（ロケール別、マークアップ無し）
 src/Components/           共有 PSX コンポーネント（Shell / SearchForm / Caption）
-src/Pages/                ルート（layout.psx / page.psx=LP / docs=索引 / docs/[slug] / search / api/search）
+src/Pages/                ルート（layout.psx / page.psx=LP / docs=リダイレクト / docs/[slug] / search / api/search）
 src/DocumentFactory.php   <head> 一式（フォント + Tailwind CDN + デザイントークン）。毎リクエスト生成
 public/index.php          エントリ（classic mode）
 worker.php                エントリ（FrankenPHP worker mode。公開ディレクトリ外）

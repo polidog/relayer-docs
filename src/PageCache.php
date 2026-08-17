@@ -48,9 +48,10 @@ final class PageCache
      * the per-page key never moves on its own.
      *
      * `bp1` — the blueprint/drafting-sheet design (2026-08).
-     * `bp2` — dark-mode prose colors + palette-aware heading anchors.
+     * `bp2` — prose colors + palette-aware heading anchors.
+     * `bp3` — green palette, OGP/favicon head tags, light-only chrome.
      */
-    public const REVISION = 'bp2';
+    public const REVISION = 'bp3';
 
     public static function timed(string $etag): Cache
     {

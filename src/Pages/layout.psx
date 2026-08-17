@@ -65,7 +65,7 @@ final class RootLayout extends LayoutComponent
                         <span className="hidden sm:inline border border-rule px-1.5 py-px font-mono text-[9px] uppercase tracking-[0.16em] text-muted">PHP</span>
                     </a>
                     <nav className="flex items-center gap-3 sm:gap-4 md:gap-6">
-                        <a href={I18n::path($locale, '/docs')} className={$nav}>Docs</a>
+                        <a href={I18n::path($locale, '/docs/getting-started')} className={$nav}>Docs</a>
                         <a href={I18n::path($locale, '/changelog')} className={$nav . ' hidden sm:inline'}>Changelog</a>
                         <a
                             href="https://github.com/polidog/relayer"
@@ -80,15 +80,6 @@ final class RootLayout extends LayoutComponent
                                 className="grid place-items-center h-8 px-2 border border-rule font-mono text-[10px] uppercase tracking-[0.14em] text-muted hover:text-draft hover:border-draft no-underline"
                             >{$en ? 'JA' : 'EN'}</a>
                         ) : null}
-                        <button
-                            id="theme-toggle"
-                            type="button"
-                            aria-label={$en ? 'Toggle theme' : 'テーマ切替'}
-                            className="grid place-items-center w-8 h-8 border border-rule text-muted hover:text-draft hover:border-draft"
-                        >
-                            <span className="dark:hidden text-xs">☾</span>
-                            <span className="hidden dark:inline text-xs">☀</span>
-                        </button>
                         <button
                             id="nav-toggle"
                             type="button"
