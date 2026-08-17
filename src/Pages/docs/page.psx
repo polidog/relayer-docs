@@ -2,114 +2,17 @@
 
 declare(strict_types=1);
 
-use App\Components\Caption;
-use App\Components\SearchForm;
-use App\Docs\DocStore;
-use App\Docs\Nav;
 use App\I18n;
-use App\Meta;
-use App\PageCache;
 use Polidog\Relayer\Http\Request;
 use Polidog\Relayer\Router\Component\PageContext;
-use Polidog\UsePhp\Html\H;
-
-// Components resolved at runtime via the compiled component manifest.
-// @psx-runtime App\Components\Caption
-// @psx-runtime App\Components\SearchForm
 
 /**
- * `/docs` — the documentation index, drawn as a drawing register: every
- * category is a numbered sheet, every page a row with a dotted leader
- * running from its title to its slug.
- *
- * This is the page the landing page hands off to, and the reason the
- * doc pages themselves keep a sidebar: the index is browsable, the
- * sidebar is for moving around once you are inside.
+ * `/docs` is only a compatibility entry point. The real documentation
+ * experience is the Shell-backed document page, so send readers straight to
+ * the first page instead of showing a separate index UI.
  */
-return function (PageContext $ctx, Request $req, DocStore $store): Closure {
+return function (PageContext $ctx, Request $req): never {
     $locale = I18n::normalize($req->locale());
-    $en = 'en' === $locale;
 
-    $title = $en ? 'Documentation' : 'ドキュメント';
-    $ctx->metadata(Meta::forPage(
-        $title . ' — Relayer Docs',
-        $en
-            ? 'Every page of the Relayer documentation, by category.'
-            : 'Relayer ドキュメントの全ページをカテゴリ別に一覧します。',
-        '/docs',
-        'home',
-        $locale,
-    ));
-
-    // Same time-based policy as the rest of the corpus pages: the ETag
-    // is the corpus digest, so a post-expiry revalidation is a 304
-    // until some page actually changes.
-    $ctx->cache(PageCache::timed('docs-index-' . $locale . '-' . $store->corpusTag($locale)));
-
-    // Number the categories in nav order — here the order is real
-    // information (it is the reading order of the documentation), not
-    // decoration.
-    $groups = [];
-    foreach (Nav::groups($store, $locale) as $i => $g) {
-        $groups[] = [
-            'no' => \sprintf('%02d', $i + 1),
-            'label' => I18n::category($locale, $g['category']),
-            'count' => \count($g['docs']),
-            'docs' => $g['docs'],
-        ];
-    }
-
-    $total = \count(Nav::flat($store, $locale));
-
-    return fn () => (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-12 md:py-16">
-            <Caption fig="Index" title={$en ? 'Relayer documentation' : 'Relayer ドキュメント'} />
-
-            <h1 className="mt-5 font-display text-4xl md:text-5xl font-bold tracking-[-0.02em] text-ink">{$title}</h1>
-            <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted">
-                {$en
-                    ? 'All ' . $total . ' pages, in reading order. Start at the top, or search.'
-                    : '全 ' . $total . ' ページを読む順に並べています。上から順でも、検索からでも。'}
-            </p>
-
-            <div className="mt-6 max-w-md">
-                <SearchForm locale={$locale} />
-            </div>
-
-            <div className="mt-12">
-                {array_map(fn (array $g) => (
-                    <section className="mb-12">
-                        <div className="flex items-baseline gap-3">
-                            <span className="font-mono text-[11px] text-draft tracking-[0.16em]">{$g['no']}</span>
-                            <h2 className="m-0 font-display text-xl font-semibold text-ink whitespace-nowrap">{$g['label']}</h2>
-                            <span className="bp-leader"></span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted whitespace-nowrap">
-                                {$g['count'] . ($en ? ' pages' : ' 本')}
-                            </span>
-                        </div>
-
-                        <ul className="list-none m-0 mt-3 p-0 border-t border-rule">
-                            {array_map(fn ($d) => (
-                                <li className="border-b border-rule">
-                                    <a
-                                        href={I18n::path($locale, '/docs/' . $d->slug)}
-                                        className="group block px-3 py-3.5 no-underline hover:bg-draft/[0.05]"
-                                    >
-                                        <span className="flex items-baseline gap-3">
-                                            <span className="font-medium text-ink group-hover:text-draft break-words">{$d->title}</span>
-                                            <span className="bp-leader"></span>
-                                            <span className="font-mono text-[11px] text-muted whitespace-nowrap">{$d->slug}</span>
-                                        </span>
-                                        {'' !== $d->description
-                                            ? (<span className="block mt-1 text-sm leading-relaxed text-muted break-words">{$d->description}</span>)
-                                            : null}
-                                    </a>
-                                </li>
-                            ), $g['docs'])}
-                        </ul>
-                    </section>
-                ), $groups)}
-            </div>
-        </div>
-    );
+    $ctx->redirect(I18n::path($locale, '/docs/getting-started'), 302);
 };

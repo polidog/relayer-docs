@@ -56,9 +56,9 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                     </p>
                     <div className="mt-8">
                         <a
-                            href={I18n::path($locale, '/docs')}
+                            href={I18n::path($locale, '/docs/getting-started')}
                             className="inline-flex items-center gap-2 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] bg-draft text-paper hover:bg-ink no-underline"
-                        >{($en ? 'Open the index' : 'ドキュメント一覧へ') . ' ▸'}</a>
+                        >{($en ? 'Start reading' : '最初から読む') . ' ▸'}</a>
                     </div>
                 </section>
             </Shell>
@@ -110,7 +110,7 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
         <Shell store={$store} active={$doc->slug} locale={$locale}>
             <article>
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted mb-6">
-                    <a href={I18n::path($locale, '/docs')} className="text-draft no-underline hover:underline">Docs</a>
+                    <a href={I18n::path($locale, '/docs/getting-started')} className="text-draft no-underline hover:underline">Docs</a>
                     <span>{'' !== $doc->category ? I18n::category($locale, $doc->category) : ($en ? 'Documentation' : 'ドキュメント')}</span>
                     <span className="bp-leader"></span>
                     <span className="normal-case tracking-normal">{$doc->slug}</span>

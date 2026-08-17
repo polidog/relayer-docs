@@ -148,7 +148,7 @@ final class Landing
                 ['key' => 'Cache', 'title' => 'HTTP キャッシュ', 'slug' => 'http-cache',
                     'body' => 'ページごとに ETag と s-maxage を宣言。CDN のヒット率まで含めて設計できます。'],
             ],
-            'specsMore' => 'ドキュメントを全部見る',
+            'specsMore' => 'ドキュメントを読む',
             'sample' => self::SAMPLE,
             'sampleNote' => 'このクロージャがページ Component です。置けば /hello/world が動き、'
                 . 'ルーターへの登録も設定ファイルも要りません。',
@@ -230,7 +230,7 @@ final class Landing
                 ['key' => 'Cache', 'title' => 'HTTP caching', 'slug' => 'http-cache',
                     'body' => 'Declare an ETag and s-maxage per page, and design for the CDN hit rate as you go.'],
             ],
-            'specsMore' => 'Read every page',
+            'specsMore' => 'Read the docs',
             'sample' => self::SAMPLE,
             'sampleNote' => 'That closure is the page component. Save the file and /hello/world responds — '
                 . 'nothing to register, nothing to configure.',

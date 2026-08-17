@@ -19,11 +19,10 @@ use Polidog\UsePhp\Html\H;
  * Home — the landing page for Relayer itself, drawn as a specification
  * sheet: a title block, then numbered figures (the request path, the
  * route map, one whole page of source) and a spec list that hands off
- * to `/docs`.
+ * to the first documentation page.
  *
- * The documentation index moved to `src/Pages/docs/page.psx`; this page
- * deliberately carries no sidebar and no doc-store data, so it renders
- * without touching the corpus.
+ * This page deliberately carries no sidebar and no doc-store data, so it
+ * renders without touching the corpus.
  */
 return function (PageContext $ctx, Request $req): Closure {
     $locale = I18n::normalize($req->locale());
@@ -74,7 +73,7 @@ return function (PageContext $ctx, Request $req): Closure {
                         <p className="mt-6 max-w-xl text-base md:text-[17px] leading-relaxed text-muted">{$c['lead']}</p>
                         <div className="mt-9 flex flex-wrap items-center gap-3">
                             <a href={I18n::path($locale, '/docs/getting-started')} className={$btnPrimary}>{$c['ctaPrimary'] . ' ▸'}</a>
-                            <a href={I18n::path($locale, '/docs')} className={$btnGhost}>{$c['ctaSecondary']}</a>
+                            <a href={I18n::path($locale, '/docs/getting-started')} className={$btnGhost}>{$c['ctaSecondary']}</a>
                         </div>
                         <div className="mt-7 inline-flex max-w-full items-baseline gap-2 border border-rule bg-sheet px-4 py-3 font-mono text-[14px] overflow-x-auto">
                             <span className="text-draft select-none">$</span>
@@ -185,7 +184,7 @@ return function (PageContext $ctx, Request $req): Closure {
                         ), $c['specs'])}
                     </div>
                     <div className="mt-4">
-                        <a href={I18n::path($locale, '/docs')} className="font-mono text-[12px] uppercase tracking-[0.18em] text-draft no-underline hover:underline">{$c['specsMore'] . ' ▸'}</a>
+                        <a href={I18n::path($locale, '/docs/getting-started')} className="font-mono text-[12px] uppercase tracking-[0.18em] text-draft no-underline hover:underline">{$c['specsMore'] . ' ▸'}</a>
                     </div>
                 </div>
             </section>
