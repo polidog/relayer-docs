@@ -67,7 +67,7 @@ final class Meta
         // en under /en) so each language self-canonicalizes. The OG
         // card image stays slug-keyed and locale-agnostic.
         $url = SiteUrl::abs(I18n::path($locale, $path));
-        $image = SiteUrl::abs('/og/' . $ogSlug);
+        $image = SiteUrl::abs('/og/' . $ogSlug . '.png');
 
         return [
             'title' => $title,
@@ -76,6 +76,7 @@ final class Meta
             'og:description' => $description,
             'og:url' => $url,
             'og:image' => $image,
+            'og:image:secure_url' => $image,
             'og:locale' => I18n::ogLocale($locale),
             'twitter:title' => $title,
             'twitter:description' => $description,

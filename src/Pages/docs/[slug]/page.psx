@@ -21,10 +21,9 @@ use Polidog\UsePhp\Html\H;
 /**
  * A single documentation page. The slug is the dynamic `[slug]`
  * segment; the Markdown body is rendered into an element tree and
- * styled with @tailwindcss/typography. The class list is just `prose`,
- * with no `prose-slate` / `dark:prose-invert` modifiers: the palette
- * comes from the `--tw-prose-*` overrides in App\DocumentFactory, which
- * are theme-aware already. (That stylesheet writes the selector as
+ * styled with @tailwindcss/typography. The class list is just `prose`;
+ * the palette comes from the `--tw-prose-*` overrides in
+ * App\DocumentFactory. (That stylesheet writes the selector as
  * `.prose.prose` purely to outrank the plugin's own rule — a repeated
  * class matches this single `prose` here.) Plus prev/next navigation
  * and the revision list.

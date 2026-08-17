@@ -81,15 +81,6 @@ final class RootLayout extends LayoutComponent
                             >{$en ? 'JA' : 'EN'}</a>
                         ) : null}
                         <button
-                            id="theme-toggle"
-                            type="button"
-                            aria-label={$en ? 'Toggle theme' : 'テーマ切替'}
-                            className="grid place-items-center w-8 h-8 border border-rule text-muted hover:text-draft hover:border-draft"
-                        >
-                            <span className="dark:hidden text-xs">☾</span>
-                            <span className="hidden dark:inline text-xs">☀</span>
-                        </button>
-                        <button
                             id="nav-toggle"
                             type="button"
                             aria-label={$en ? 'Menu' : 'メニュー'}

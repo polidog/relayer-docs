@@ -29,10 +29,10 @@ final class Markdown
         $this->slugSeen = [];
         $lines = \preg_split('/\r\n|\r|\n/', $markdown) ?: [];
 
-        // No wrapper class: the page wraps this in a Tailwind
-        // `prose dark:prose-invert` container, which styles the bare
-        // elements (headings, p, ul, code, pre, table, …) for both
-        // light and dark mode.
+        // No wrapper class: the page wraps this in a Tailwind `prose`
+        // container, and App\DocumentFactory supplies the typography
+        // palette for the bare elements (headings, p, ul, code, pre,
+        // table, ...).
         return H::Fragment($this->blocks($lines));
     }
 

@@ -14,7 +14,7 @@ use function Polidog\UsePhp\Runtime\fc;
  * Search box. `query` pre-fills the field; `large` switches to the
  * results-page size; `locale` keeps the GET form on the locale's own
  * `/search` path so results stay in that language. Plain GET form
- * (works without JS). Square, hairline-ruled, dark-mode aware.
+ * (works without JS). Square, hairline-ruled, palette-aware.
  *
  * Wrapped in fc(..., StorageType::Memory): this component holds no
  * state, but use-php's default StorageType::Session would construct a
