@@ -29,7 +29,7 @@ use Polidog\Relayer\Http\Response;
  * `/en/...` and default-locale `/...` both pass straight through and
  * stay cacheable, one language per URL.
  *
- * Scope: GET HTML pages only. Single-locale deployments (no
+ * Scope: GET/HEAD HTML pages only. Single-locale deployments (no
  * APP_LOCALES) and the crawler/data endpoints (sitemap, robots, api,
  * og) are left exactly as they were.
  */
@@ -39,7 +39,7 @@ return function (Request $request, Closure $next): void {
     // Nothing to make safe unless the site actually publishes >1
     // locale and Relayer resolved a non-default one.
     if (
-        'GET' !== $request->method
+        !\in_array($request->method, ['GET', 'HEAD'], true)
         || !I18n::bilingual()
         || null === $locale
         || I18n::DEFAULT === $locale
