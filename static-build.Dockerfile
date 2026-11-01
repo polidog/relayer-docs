@@ -98,8 +98,12 @@ RUN rm -rf vendor/bin var
 # static-builder-gnu (not -musl): mostly-static, needs glibc >= 2.17 at
 # runtime, and upstream recommends it wherever Alpine/scratch is not a
 # hard requirement — musl's allocator costs real request throughput.
+#
+# Pinned: FrankenPHP moved build-static.sh to static-php-cli v3 from
+# v1.13.2, which removes the `curl -o spc` line patched below. Moving past
+# 1.12.7 means reworking that patch and the build arguments for v3.
 ########################################################################
-FROM --platform=linux/amd64 dunglas/frankenphp:static-builder-gnu AS builder
+FROM --platform=linux/amd64 dunglas/frankenphp:static-builder-gnu-1.12.7 AS builder
 
 WORKDIR /go/src/app/dist/app
 COPY --from=app /app ./
