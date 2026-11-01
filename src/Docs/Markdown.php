@@ -329,8 +329,20 @@ final class Markdown
                 break;
             }
 
-            $items[] = ['children' => $this->inline($mm[3])];
+            // Indented lines that start no block of their own continue the item.
+            $text = [$mm[3]];
             ++$i;
+            while (
+                $i < $n
+                && '' !== \trim($lines[$i])
+                && \strspn($lines[$i], ' ') > $baseIndent
+                && !$this->startsBlock($lines[$i])
+            ) {
+                $text[] = \trim($lines[$i]);
+                ++$i;
+            }
+
+            $items[] = ['children' => $this->inline($this->joinParagraph($text))];
         }
 
         $lis = \array_map(
