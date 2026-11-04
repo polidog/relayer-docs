@@ -3,16 +3,17 @@
 declare(strict_types=1);
 
 use Polidog\Relayer\Scaffold\InitCommand;
-use Polidog\UsePhp\Psx\CompileCommand;
+use Polidog\Rosanna\Defer\DeferredManifestCompiler;
+use Polidog\Rosanna\Psx\CompileCommand;
 
 /**
  * Build the precompiled artifacts inside the embedded app, at boot.
  *
- * The classic (non-embedded) image runs `usephp compile` and `relayer
+ * The classic (non-embedded) image runs `rosanna-defer compile` and `relayer
  * routes:compile` at *build* time — it can, because the build path and
  * the serve path are the same `/var/www/html`. A single-binary build
  * cannot: the PSX cache names every compiled file `sha1(<absolute path
- * of the source>)` (see use-php's CompileCommand), and the absolute
+ * of the source>)` (see rosanna's CompileCommand), and the absolute
  * path only exists once the binary has untarred itself into
  * `$TMPDIR/frankenphp_<md5 of app.tar>`. Baking the cache into the tar
  * would change the tar's checksum, which changes the extraction path,
@@ -36,7 +37,7 @@ use Polidog\UsePhp\Psx\CompileCommand;
 
 $root = \dirname(__DIR__);
 
-// The relayer/use-php commands take the project root explicitly, but
+// The relayer/rosanna commands take the project root explicitly, but
 // keep cwd aligned with it anyway so anything reading getcwd() (or a
 // relative path inside a compiled artifact) agrees.
 \chdir($root);
@@ -47,7 +48,9 @@ require $root . '/vendor/autoload.php';
 // Dockerfile: PascalCase components land in manifest.php, lowercase
 // page.psx/layout.psx are loaded by their sha1 path, and Relayer::boot
 // pins <projectRoot>/var/cache/psx for both.
-$status = (new CompileCommand())->run(
+// Same compiler `vendor/bin/rosanna-defer compile` uses: it also writes
+// the deferred manifest relayer needs.
+$status = (new CompileCommand((new DeferredManifestCompiler())->compile(...)))->run(
     [
         $root . '/src/Components',
         $root . '/src/Pages',
@@ -57,7 +60,7 @@ $status = (new CompileCommand())->run(
 );
 
 if (0 !== $status) {
-    \fwrite(\STDERR, "embed-compile: usephp compile failed\n");
+    \fwrite(\STDERR, "embed-compile: rosanna-defer compile failed\n");
 
     exit($status);
 }

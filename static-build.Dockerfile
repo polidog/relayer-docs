@@ -142,17 +142,14 @@ RUN set -eux; \
 #
 # That default is a moving target: the checksum changes with every
 # application change, so the app's absolute path changes on every
-# deploy. usePHP names each compiled component `sha1(<absolute path of
-# the source>)` and emits those ids into the HTML as
-# `data-usephp="FC@<sha1>.php"`, so a moving root means the markup
-# changes on every deploy even when the content does not — while the
-# ETag, which is derived from the document content, stays put. With
-# s-maxage=30d in front of this site, that is a recipe for a CDN copy
-# whose component ids no longer match the running deployment.
+# deploy. The PSX cache names each compiled file `sha1(<absolute path
+# of the source>)`, so a moving root means a different set of compiled
+# artifacts — and different paths in anything derived from them — on
+# every deploy even when the content does not change.
 #
 # Pinning to /var/www/html — the path the classic image serves from —
-# makes the two builds produce byte-identical HTML and makes the ids
-# stable across deploys. FrankenPHP exposes this as a Go ldflag
+# makes the two builds produce byte-identical HTML and keeps the cache
+# paths stable across deploys. FrankenPHP exposes this as a Go ldflag
 # (`-X ...EmbeddedAppPath=`), but static-php-cli hardcodes
 # XCADDY_GO_BUILD_FLAGS with no injection point, so set the default in
 # the source instead. The grep is the guard: if upstream ever changes

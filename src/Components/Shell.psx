@@ -6,10 +6,7 @@ namespace App\Components;
 
 use App\Docs\Nav;
 use App\I18n;
-use Polidog\UsePhp\Html\H;
-use Polidog\UsePhp\Storage\StorageType;
-
-use function Polidog\UsePhp\Runtime\fc;
+use Polidog\Rosanna\Html\H;
 
 /**
  * The doc shell: sidebar (search + category nav) | content sheet. It
@@ -21,16 +18,8 @@ use function Polidog\UsePhp\Runtime\fc;
  * default 'ja'), children. The language switcher is NOT here — it moved
  * into the header (src/Pages/layout.psx) so the landing page and the
  * index, which compose no Shell, can switch too.
- *
- * Wrapped in fc(..., StorageType::Memory) for the same reason as
- * SearchForm: this shell is stateless, but use-php's default
- * StorageType::Session starts a PHP session on render and emits
- * `Set-Cookie: PHPSESSID`, which forces Cloudflare to BYPASS the
- * edge cache on every page. Memory storage is session-free, keeping
- * the read pages cacheable (App\PageCache s-maxage).
  */
-return fc(
-    function (array $props) {
+return function (array $props) {
     $store = $props['store'];
     $active = $props['active'] ?? null;
     $locale = $props['locale'] ?? I18n::DEFAULT;
@@ -69,6 +58,4 @@ return fc(
             </main>
         </div>
     );
-    },
-    storageType: StorageType::Memory,
-);
+};

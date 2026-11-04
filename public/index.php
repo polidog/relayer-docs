@@ -14,16 +14,11 @@ require_once __DIR__ . '/../vendor/autoload.php';
 // cache_limiter so the App\PageCache ETag + max-age/s-maxage headers
 // stand. (Public docs site; pages opt into caching explicitly.)
 //
-// The related `Set-Cookie: PHPSESSID` problem — which made Cloudflare
-// hard-bypass the edge cache on every HTML page and defeated
-// App\PageCache::SHARED_TTL — is fixed upstream, not here: use-php
-// >= 0.7.1 starts the session lazily, so the Session-typed
-// ComponentState relayer creates for a stateless page no longer emits
-// a cookie. We deliberately do NOT set `session.use_cookies=0` as an
-// app-level workaround anymore: that would silently break any future
-// page that does use auth / CSRF / useState. Keep relying on the
-// framework fix (composer constraint pins relayer ^0.12.1, which
-// requires use-php >= 0.7.1).
+// Components hold no state, so rendering a page never starts a session
+// and never emits `Set-Cookie: PHPSESSID` (which would make Cloudflare
+// bypass the edge cache). We deliberately do NOT set
+// `session.use_cookies=0`: that would silently break any future page
+// that uses auth / CSRF / server actions.
 \ini_set('session.cache_limiter', '');
 
 // dirname() (not __DIR__ . '/..') so the project root is a clean

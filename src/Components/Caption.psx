@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Components;
 
-use Polidog\UsePhp\Html\H;
-use Polidog\UsePhp\Storage\StorageType;
-
-use function Polidog\UsePhp\Runtime\fc;
+use Polidog\Rosanna\Html\H;
 
 /**
  * A drawing caption: the figure number, a leader rule, and the title —
@@ -16,14 +13,8 @@ use function Polidog\UsePhp\Runtime\fc;
  *
  * Props: fig (e.g. 'Fig.02' or 'Index'), title (string), className
  * (extra classes for the wrapper, optional).
- *
- * Memory storage for the same reason as Shell / SearchForm: use-php's
- * default StorageType::Session would start a PHP session on render and
- * emit `Set-Cookie: PHPSESSID`, which makes the CDN bypass its cache on
- * every page this appears on.
  */
-return fc(
-    function (array $props) {
+return function (array $props) {
         $wrap = 'flex items-baseline gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-muted';
 
         return (
@@ -33,6 +24,4 @@ return fc(
             <span className="text-ink whitespace-nowrap overflow-hidden text-ellipsis">{$props['title'] ?? ''}</span>
         </div>
         );
-    },
-    storageType: StorageType::Memory,
-);
+};

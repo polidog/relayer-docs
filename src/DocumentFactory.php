@@ -219,7 +219,7 @@ final class DocumentFactory
                 } else {
                   run();
                 }
-                // Re-highlight content brought in by usePHP partial updates.
+                // Re-highlight when a page is restored from the back/forward cache.
                 window.addEventListener('pageshow', run);
               })();
             </script>

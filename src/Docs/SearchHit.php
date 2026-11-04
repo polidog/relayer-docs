@@ -7,7 +7,7 @@ namespace App\Docs;
 /**
  * One search result. The snippet is pre-split into segments so the
  * view can wrap matched spans in <mark> without ever emitting raw
- * HTML (use-php escapes every text node — highlighting has to be
+ * HTML (Rosanna escapes every text node — highlighting has to be
  * structural, not string-injected).
  */
 final readonly class SearchHit

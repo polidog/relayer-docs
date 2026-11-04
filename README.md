@@ -66,7 +66,7 @@ src/Docs/                 ストア層 + Markdown→Element レンダラ
   DocStore.php            FTS5 含む SQL（Pdo / Turso 共通）
   PdoConnection.php       ローカル SQLite
   TursoConnection.php     Turso HTTP API（/v2/pipeline, curl 不要）
-  Markdown.php            Markdown → use-php Element ツリー
+  Markdown.php            Markdown → Rosanna Element ツリー
   Nav.php                 ナビ用データ（マークアップ無し）
 src/Landing.php           トップ（LP）の文言・図版データ（ロケール別、マークアップ無し）
 src/Components/           共有 PSX コンポーネント（Shell / SearchForm / Caption）

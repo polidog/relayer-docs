@@ -37,7 +37,7 @@ final class Landing
         <?php
 
         use Polidog\Relayer\Router\Component\PageContext;
-        use Polidog\UsePhp\Html\H;
+        use Polidog\Rosanna\Html\H;
 
         return function (PageContext $ctx): Closure {
             $ctx->metadata(['title' => 'Hello']);
@@ -126,7 +126,7 @@ final class Landing
                 ['src/Pages/middleware.php', '全ルートに適用'],
             ],
             'routesLegend' => [
-                ['.psx', 'PHP に JSX をそのまま書ける拡張子。use-php が素の PHP へコンパイルするので、'
+                ['.psx', 'PHP に JSX をそのまま書ける拡張子。Rosanna が素の PHP へコンパイルするので、'
                     . 'テンプレート言語も Node のビルドも挟みません。'],
                 ['page.psx / route.php', 'page.psx があればページ、route.php があれば JSON を返す API。'
                     . '同じディレクトリに両方は置けません。'],
@@ -208,7 +208,7 @@ final class Landing
                 ['src/Pages/middleware.php', 'every route'],
             ],
             'routesLegend' => [
-                ['.psx', 'The extension that lets you write JSX inside PHP. use-php compiles it to plain PHP, '
+                ['.psx', 'The extension that lets you write JSX inside PHP. Rosanna compiles it to plain PHP, '
                     . 'so there is no template language and no Node build in the middle.'],
                 ['page.psx / route.php', 'A directory with a page.psx is a page; one with a route.php is a JSON API. '
                     . 'Never both in the same directory.'],
