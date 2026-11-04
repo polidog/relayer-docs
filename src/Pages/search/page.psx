@@ -77,7 +77,7 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                                         : null}
                                     <p className="mt-1.5 text-muted text-sm leading-relaxed break-words">
                                         {array_map(fn (array $s) => $s['hit']
-                                            ? (<mark className="bg-draft/20 text-ink px-0.5">{$s['text']}</mark>)
+                                            ? (<mark className="bg-accent/50 text-ink px-0.5">{$s['text']}</mark>)
                                             : $s['text'], $hit->segments)}
                                     </p>
                                 </li>
