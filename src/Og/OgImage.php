@@ -33,14 +33,14 @@ final class OgImage
 
     private const PAD = 90;
 
-    // Site palette — green drafting direction (`--bp-*` in
+    // Site palette — yellow drafting direction (`--bp-*` in
     // App\DocumentFactory). Keep these in step with that stylesheet.
-    private const BG = [9, 34, 25];          // --bp-plate
-    private const PANEL = [42, 92, 66];
-    private const ACCENT = [60, 196, 126];
-    private const TITLE = [230, 246, 236];
-    private const MUTED = [158, 204, 174];
-    private const FAINT = [112, 156, 130];
+    private const BG = [33, 28, 10];         // --bp-plate
+    private const PANEL = [92, 76, 28];
+    private const ACCENT = [250, 204, 21];   // --bp-accent
+    private const TITLE = [252, 246, 224];
+    private const MUTED = [222, 200, 140];
+    private const FAINT = [160, 140, 90];
 
     /**
      * @param string $title   the card headline (doc / page title)

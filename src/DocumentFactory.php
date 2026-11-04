@@ -45,7 +45,7 @@ final class DocumentFactory
         // Tailwind via the Play CDN (+ typography plugin) — no Node/build step,
         // honoring Relayer's "no build" rule while still being Tailwind-based.
         // The palette is NOT hard-coded per utility: every color resolves to a
-        // CSS custom property (`--bp-*`, defined below), so the green direction
+        // CSS custom property (`--bp-*`, defined below), so the yellow direction
         // stays centralized. The vars hold `R G B` triplets so Tailwind's
         // `<alpha-value>` slot still works (`bg-draft/10`).
         $tailwind = <<<'HTML'
@@ -62,7 +62,8 @@ final class DocumentFactory
                       rule:  'rgb(var(--bp-rule) / <alpha-value>)',
                       draft: 'rgb(var(--bp-draft) / <alpha-value>)',
                       mark:  'rgb(var(--bp-mark) / <alpha-value>)',
-                      plate: 'rgb(var(--bp-plate) / <alpha-value>)'
+                      plate: 'rgb(var(--bp-plate) / <alpha-value>)',
+                      accent: 'rgb(var(--bp-accent) / <alpha-value>)'
                     },
                     fontFamily: {
                       sans: ['IBM Plex Sans','Hiragino Sans','Noto Sans JP','Yu Gothic UI','Meiryo','sans-serif'],
@@ -75,7 +76,9 @@ final class DocumentFactory
             </script>
             HTML;
 
-        // The design system itself: a botanical drafting-sheet direction.
+        // The design system itself: a yellow drafting-sheet direction —
+        // deep ochre (`draft`) for text and lines, bright yellow (`accent`)
+        // for fills only (yellow text on cream would fail contrast).
         // Everything that isn't a
         // Tailwind utility lives here — the graph-paper ground, the corner
         // registration marks, the dotted TOC leaders, the lifecycle-diagram
@@ -83,15 +86,16 @@ final class DocumentFactory
         $blueprint = <<<'HTML'
             <style>
               :root {
-                --bp-paper: 243 247 241;
-                --bp-sheet: 255 255 255;
-                --bp-ink: 18 42 31;
-                --bp-muted: 86 113 96;
-                --bp-rule: 199 218 204;
-                --bp-draft: 24 128 78;
+                --bp-paper: 252 249 236;
+                --bp-sheet: 255 254 248;
+                --bp-ink: 41 34 12;
+                --bp-muted: 117 104 70;
+                --bp-rule: 232 220 178;
+                --bp-draft: 161 110 0;
                 --bp-mark: 200 63 33;
-                --bp-plate: 9 34 25;
-                --bp-dot: rgba(35, 125, 80, .17);
+                --bp-plate: 33 28 10;
+                --bp-accent: 250 204 21;
+                --bp-dot: rgba(180, 140, 20, .18);
                 color-scheme: light;
               }
               body {
@@ -100,7 +104,7 @@ final class DocumentFactory
                 background-size: 24px 24px;
                 background-position: -1px -1px;
               }
-              ::selection { background: rgb(var(--bp-draft) / .22); }
+              ::selection { background: rgb(var(--bp-accent) / .5); }
               :focus-visible { outline: 2px solid rgb(var(--bp-draft)); outline-offset: 2px; }
 
               /* Registration marks: two opposite corner brackets on a panel,
@@ -154,7 +158,7 @@ final class DocumentFactory
                 --tw-prose-quote-borders: rgb(var(--bp-draft));
                 --tw-prose-captions: rgb(var(--bp-muted));
                 --tw-prose-code: rgb(var(--bp-ink));
-                --tw-prose-pre-code: #d8f0e4;
+                --tw-prose-pre-code: #f5ecd0;
                 --tw-prose-pre-bg: rgb(var(--bp-plate));
                 --tw-prose-th-borders: rgb(var(--bp-rule));
                 --tw-prose-td-borders: rgb(var(--bp-rule));
@@ -257,7 +261,7 @@ final class DocumentFactory
         // box mirrors App\Og\OgImage::WIDTH/HEIGHT — keep them in sync.
         $og = <<<'HTML'
             <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-            <meta name="theme-color" content="#18804e">
+            <meta name="theme-color" content="#facc15">
             <meta property="og:type" content="website">
             <meta property="og:site_name" content="Relayer ドキュメント">
             <meta property="og:image:type" content="image/png">

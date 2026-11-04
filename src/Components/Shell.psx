@@ -27,7 +27,7 @@ return function (array $props) {
 
     $linkBase = 'block pl-3 py-1.5 text-sm no-underline border-l ';
     $linkOff = $linkBase . 'border-rule text-muted hover:text-draft hover:border-draft';
-    $linkOn = $linkBase . 'border-draft border-l-2 text-draft font-medium bg-draft/[0.07]';
+    $linkOn = $linkBase . 'border-draft border-l-2 text-draft font-medium bg-accent/20';
 
     return (
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-10 grid gap-8 md:gap-10 items-start grid-cols-1 md:grid-cols-[228px_minmax(0,1fr)]">

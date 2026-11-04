@@ -57,7 +57,7 @@ return function (PageContext $ctx, Request $req, DocStore $store): Closure {
                     <div className="mt-8">
                         <a
                             href={I18n::path($locale, '/docs/getting-started')}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] bg-draft text-paper hover:bg-ink no-underline"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] bg-accent text-ink hover:bg-ink hover:text-paper no-underline"
                         >{($en ? 'Start reading' : '最初から読む') . ' ▸'}</a>
                     </div>
                 </section>
