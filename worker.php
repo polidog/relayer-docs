@@ -5,8 +5,6 @@ declare(strict_types=1);
 use App\AppConfigurator;
 use App\DocumentFactory;
 use Polidog\Relayer\Relayer;
-use Polidog\UsePhp\Runtime\ComponentState;
-use Polidog\UsePhp\Storage\StorageFactory;
 
 /**
  * FrankenPHP worker-mode entry point.
@@ -31,17 +29,6 @@ use Polidog\UsePhp\Storage\StorageFactory;
  *   - NOT hoisted: the HtmlDocument. It is mutable and the router
  *     writes to it per request, including addScript(), which appends
  *     and is never drained. See App\DocumentFactory.
- *
- * Known rough edge: relayer answers a conditional request with
- * `CachePolicy::sendNotModified(); exit;` (AppRouter::applyFunctionPageCache,
- * and the PRG path in dispatchStateAction does the same). Under a
- * worker, `exit` terminates the worker script and FrankenPHP restarts
- * it — so every 304 costs a worker reboot. It stays correct, but this
- * site sets an ETag plus max-age=300 on every page, so revalidations
- * are routine traffic rather than an edge case. That belongs upstream
- * in relayer (return/throw instead of exit when running under a
- * worker); until then it is the main reason to measure worker mode
- * here rather than assume it wins.
  */
 
 require_once __DIR__ . '/vendor/autoload.php';
@@ -66,16 +53,10 @@ $maxRequests = (int) (\getenv('MAX_REQUESTS') ?: 0);
 for ($handled = 0; 0 === $maxRequests || $handled < $maxRequests; ++$handled) {
     $keepRunning = \frankenphp_handle_request($handler);
 
-    // Per-request statics the framework does not clear itself. relayer
-    // registers a shutdown function that resets RenderContext,
-    // PageContext, Translators and the container's current request, but
-    // use-php's component-state maps are keyed by component id and
-    // survive: without this, a component's useState from one request
-    // would be visible to the next request that renders the same
-    // component. This site is stateless today, which is exactly why the
-    // reset is cheap insurance rather than a visible fix.
-    ComponentState::clearInstances();
-    StorageFactory::reset();
+    // Drop the request-scoped statics relayer and Rosanna keep (the
+    // render scope, PageContext, translators, anything registered with
+    // RequestLifecycle::onReset()) so nothing leaks into the next request.
+    Relayer::endRequest();
 
     // The PSX render path builds deep object graphs with parent/child
     // references; collecting them here keeps steady-state RSS flat

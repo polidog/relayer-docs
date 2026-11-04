@@ -50,12 +50,12 @@
 	}
 	respond @hidden 403
 
-	# Front controller: serve real files (e.g. /usephp.js), route
+	# Front controller: serve real files (e.g. /rosanna-defer.js), route
 	# everything else to Relayer's single entrypoint (index.php).
 	# No `worker` directive → classic mode, exactly like the Docker
 	# image: one script execution per request, no state shared between
 	# requests. Worker mode is a separate, later step (it needs a
-	# worker script that resets use-php's per-request statics).
+	# worker script that resets Rosanna's per-request statics).
 	php_server {
 		try_files {path} index.php
 	}

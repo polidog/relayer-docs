@@ -54,7 +54,7 @@
 	}
 	respond @hidden 403
 
-	# Front controller. Static files (e.g. /usephp.js) are still served
+	# Front controller. Static files (e.g. /rosanna-defer.js) are still served
 	# straight off disk by Caddy; everything else reaches the worker,
 	# which handles it through the same Relayer router that index.php
 	# would have booted per request.

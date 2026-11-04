@@ -52,7 +52,7 @@ ENV APP_ENV=production \
 
 WORKDIR /var/www/html
 
-# Full tree first (composer post-install publishes public/usephp.js),
+# Full tree first (composer post-install publishes public/rosanna-defer.js),
 # then install + precompile the PSX cache. One invocation over both
 # source roots → one manifest covering the components, with every
 # compiled artifact in the single dir relayer resolves from. ABSOLUTE
@@ -68,7 +68,7 @@ WORKDIR /var/www/html
 COPY . .
 RUN set -eux; \
     composer install --no-dev --optimize-autoloader --no-interaction; \
-    php vendor/bin/usephp compile src/Components src/Pages --cache=/var/www/html/var/cache/psx; \
+    php vendor/bin/rosanna-defer compile src/Components src/Pages --cache=/var/www/html/var/cache/psx; \
     php vendor/bin/relayer routes:compile; \
     rm -rf var/cache/profiler var/cache/etags
 

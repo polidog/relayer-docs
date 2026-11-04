@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "635c490aec559af7683dbc47a74860f0",
+    "content-hash": "0448ac724ec9f12ae4d270e9d27c6856",
     "packages": [
         {
             "name": "firebase/php-jwt",
@@ -244,16 +244,16 @@
         },
         {
             "name": "polidog/relayer",
-            "version": "v0.31.0",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/polidog/relayer.git",
-                "reference": "9566b0c80bba3eaffa754b145ebff16026105d26"
+                "reference": "8f74401543cb58954f7b010b60ca1ca3cb80ff78"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/polidog/relayer/zipball/9566b0c80bba3eaffa754b145ebff16026105d26",
-                "reference": "9566b0c80bba3eaffa754b145ebff16026105d26",
+                "url": "https://api.github.com/repos/polidog/relayer/zipball/8f74401543cb58954f7b010b60ca1ca3cb80ff78",
+                "reference": "8f74401543cb58954f7b010b60ca1ca3cb80ff78",
                 "shasum": ""
             },
             "require": {
@@ -262,7 +262,8 @@
                 "firebase/php-jwt": "^7.0",
                 "monolog/monolog": "^3.0",
                 "php": ">=8.5",
-                "polidog/use-php": "^0.10.0",
+                "polidog/rosanna": "^1.0",
+                "polidog/rosanna-defer": "^1.0",
                 "psr/container": "^2.0",
                 "symfony/config": "^7.1",
                 "symfony/dependency-injection": "^7.1",
@@ -296,28 +297,29 @@
                     "email": "polidogs@gmail.com"
                 }
             ],
-            "description": "Relayer — file-based router + Symfony DependencyInjection + dotenv on top of polidog/use-php.",
+            "description": "Relayer — file-based router + Symfony DependencyInjection + dotenv on top of polidog/rosanna and polidog/rosanna-defer.",
             "support": {
                 "issues": "https://github.com/polidog/relayer/issues",
-                "source": "https://github.com/polidog/relayer/tree/v0.31.0"
+                "source": "https://github.com/polidog/relayer/tree/v1.1.0"
             },
-            "time": "2026-10-31T23:57:18+00:00"
+            "time": "2026-11-04T13:23:02+00:00"
         },
         {
-            "name": "polidog/use-php",
-            "version": "v0.10.0",
+            "name": "polidog/rosanna",
+            "version": "v1.0.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/polidog/usePHP.git",
-                "reference": "e073bfffeec4d59dae175dca3776780a6b08823f"
+                "url": "https://github.com/polidog/rosanna.git",
+                "reference": "1bf151973a7795f462d1285d0d39bf48cb89cf54"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/polidog/usePHP/zipball/e073bfffeec4d59dae175dca3776780a6b08823f",
-                "reference": "e073bfffeec4d59dae175dca3776780a6b08823f",
+                "url": "https://api.github.com/repos/polidog/rosanna/zipball/1bf151973a7795f462d1285d0d39bf48cb89cf54",
+                "reference": "1bf151973a7795f462d1285d0d39bf48cb89cf54",
                 "shasum": ""
             },
             "require": {
+                "ext-mbstring": "*",
                 "nikic/php-parser": "^5.7",
                 "php": ">=8.5"
             },
@@ -328,16 +330,34 @@
                 "vimeo/psalm": "^6.14"
             },
             "bin": [
-                "bin/usephp"
+                "bin/rosanna"
             ],
             "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "1.0.x-dev"
+                }
+            },
             "autoload": {
                 "files": [
                     "src/Html/Elements.php",
-                    "src/Runtime/Hooks.php"
+                    "src-functions/Runtime/attributes.php",
+                    "src-functions/Runtime/elements.php",
+                    "src-functions/Runtime/text.php",
+                    "src-functions/Runtime/urls.php",
+                    "src-functions/Runtime/files.php",
+                    "src-functions/Runtime/traces.php",
+                    "src-functions/Psx/edits.php",
+                    "src-functions/Psx/lowering.php",
+                    "src-functions/Psx/types.php",
+                    "src-functions/Psx/tokens.php",
+                    "src-functions/Psx/literals.php",
+                    "src-functions/Psx/components.php",
+                    "src-functions/Psx/syntax.php",
+                    "src-functions/Psx/compile.php"
                 ],
                 "psr-4": {
-                    "Polidog\\UsePhp\\": "src/"
+                    "Polidog\\Rosanna\\": "src/"
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -350,12 +370,77 @@
                     "email": "polidogs@gmail.com"
                 }
             ],
-            "description": "React Hooks-like PHP components with server-side state management",
+            "description": "Server-side PHP components in the shape of React: H, Element, Renderer and the PSX compiler",
             "support": {
-                "issues": "https://github.com/polidog/usePHP/issues",
-                "source": "https://github.com/polidog/usePHP/tree/v0.10.0"
+                "issues": "https://github.com/polidog/rosanna/issues",
+                "source": "https://github.com/polidog/rosanna/tree/v1.0.0"
             },
-            "time": "2026-10-31T12:25:35+00:00"
+            "time": "2026-11-04T13:13:27+00:00"
+        },
+        {
+            "name": "polidog/rosanna-defer",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/polidog/rosanna-defer.git",
+                "reference": "25c9b97a654afff9725054610180b4379451353f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/polidog/rosanna-defer/zipball/25c9b97a654afff9725054610180b4379451353f",
+                "reference": "25c9b97a654afff9725054610180b4379451353f",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.5",
+                "polidog/rosanna": "^1.0"
+            },
+            "require-dev": {
+                "composer/composer": "^2.8",
+                "friendsofphp/php-cs-fixer": "^3.93",
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^11.0",
+                "vimeo/psalm": "^6.14"
+            },
+            "bin": [
+                "bin/rosanna-defer"
+            ],
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "1.0.x-dev"
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/functions.php",
+                    "src-functions/text.php",
+                    "src-functions/urls.php",
+                    "src-functions/requests.php",
+                    "src-functions/cache.php",
+                    "src-functions/scripts.php",
+                    "src-functions/manifest.php"
+                ],
+                "psr-4": {
+                    "Polidog\\Rosanna\\Defer\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "polidog",
+                    "email": "polidogs@gmail.com"
+                }
+            ],
+            "description": "Deferred fragments for Rosanna: placeholders, a GET endpoint, client caching and rosanna-defer.js, without sessions or state",
+            "support": {
+                "issues": "https://github.com/polidog/rosanna-defer/issues",
+                "source": "https://github.com/polidog/rosanna-defer/tree/v1.0.0"
+            },
+            "time": "2026-11-04T13:15:19+00:00"
         },
         {
             "name": "psr/container",
@@ -462,16 +547,16 @@
         },
         {
             "name": "symfony/config",
-            "version": "v7.4.22",
+            "version": "v7.4.23",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/config.git",
-                "reference": "d7f9d7495992429d916aea42d1a4d76a12dfa29f"
+                "reference": "8ef666abf731e85e59cf478929dda6c7cb2fa9c4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/config/zipball/d7f9d7495992429d916aea42d1a4d76a12dfa29f",
-                "reference": "d7f9d7495992429d916aea42d1a4d76a12dfa29f",
+                "url": "https://api.github.com/repos/symfony/config/zipball/8ef666abf731e85e59cf478929dda6c7cb2fa9c4",
+                "reference": "8ef666abf731e85e59cf478929dda6c7cb2fa9c4",
                 "shasum": ""
             },
             "require": {
@@ -517,7 +602,7 @@
             "description": "Helps you find, load, combine, autofill and validate configuration values of any kind",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/config/tree/v7.4.22"
+                "source": "https://github.com/symfony/config/tree/v7.4.23"
             },
             "funding": [
                 {
@@ -537,20 +622,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-25T14:40:16+00:00"
+            "time": "2026-11-04T08:27:22+00:00"
         },
         {
             "name": "symfony/dependency-injection",
-            "version": "v7.4.22",
+            "version": "v7.4.23",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/dependency-injection.git",
-                "reference": "f98a1b0625d5608a723481fa104b5473e6b18ebd"
+                "reference": "4df0d83a8253d95b222c2f136b9dca3a1a9451a7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/dependency-injection/zipball/f98a1b0625d5608a723481fa104b5473e6b18ebd",
-                "reference": "f98a1b0625d5608a723481fa104b5473e6b18ebd",
+                "url": "https://api.github.com/repos/symfony/dependency-injection/zipball/4df0d83a8253d95b222c2f136b9dca3a1a9451a7",
+                "reference": "4df0d83a8253d95b222c2f136b9dca3a1a9451a7",
                 "shasum": ""
             },
             "require": {
@@ -601,7 +686,7 @@
             "description": "Allows you to standardize and centralize the way objects are constructed in your application",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/dependency-injection/tree/v7.4.22"
+                "source": "https://github.com/symfony/dependency-injection/tree/v7.4.23"
             },
             "funding": [
                 {
@@ -621,20 +706,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-25T14:40:16+00:00"
+            "time": "2026-11-01T17:38:00+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
-            "version": "v3.7.1",
+            "version": "v3.8.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/deprecation-contracts.git",
-                "reference": "f3202fa1b5097b0af062dc978b32ecf63404e31d"
+                "reference": "feb1edf4e546af3b85c5caebe8359a20db230ca3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/f3202fa1b5097b0af062dc978b32ecf63404e31d",
-                "reference": "f3202fa1b5097b0af062dc978b32ecf63404e31d",
+                "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/feb1edf4e546af3b85c5caebe8359a20db230ca3",
+                "reference": "feb1edf4e546af3b85c5caebe8359a20db230ca3",
                 "shasum": ""
             },
             "require": {
@@ -647,7 +732,7 @@
                     "name": "symfony/contracts"
                 },
                 "branch-alias": {
-                    "dev-main": "3.7-dev"
+                    "dev-main": "3.8-dev"
                 }
             },
             "autoload": {
@@ -672,7 +757,7 @@
             "description": "A generic function and convention to trigger deprecation notices",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/deprecation-contracts/tree/v3.7.1"
+                "source": "https://github.com/symfony/deprecation-contracts/tree/v3.8.1"
             },
             "funding": [
                 {
@@ -692,7 +777,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-06-05T06:23:12+00:00"
+            "time": "2026-09-16T14:15:10+00:00"
         },
         {
             "name": "symfony/dotenv",
@@ -774,16 +859,16 @@
         },
         {
             "name": "symfony/filesystem",
-            "version": "v8.1.9",
+            "version": "v8.1.11",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/filesystem.git",
-                "reference": "43d109c803d22c00bb820ed45df250b6a8792ca2"
+                "reference": "58f57b6a33e3495f7f41e01258f1ae5ef76cccd2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/filesystem/zipball/43d109c803d22c00bb820ed45df250b6a8792ca2",
-                "reference": "43d109c803d22c00bb820ed45df250b6a8792ca2",
+                "url": "https://api.github.com/repos/symfony/filesystem/zipball/58f57b6a33e3495f7f41e01258f1ae5ef76cccd2",
+                "reference": "58f57b6a33e3495f7f41e01258f1ae5ef76cccd2",
                 "shasum": ""
             },
             "require": {
@@ -821,7 +906,7 @@
             "description": "Provides basic utilities for the filesystem",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/filesystem/tree/v8.1.9"
+                "source": "https://github.com/symfony/filesystem/tree/v8.1.11"
             },
             "funding": [
                 {
@@ -841,7 +926,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-06T20:05:50+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/polyfill-ctype",
@@ -1100,16 +1185,16 @@
         },
         {
             "name": "symfony/service-contracts",
-            "version": "v3.7.3",
+            "version": "v3.8.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/service-contracts.git",
-                "reference": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
+                "reference": "052852a96fd5e5ebdb617dba22031e41a3300fb5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/service-contracts/zipball/15e6a07ec2a2c75ceb1b21dd98105ee8456d2257",
-                "reference": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257",
+                "url": "https://api.github.com/repos/symfony/service-contracts/zipball/052852a96fd5e5ebdb617dba22031e41a3300fb5",
+                "reference": "052852a96fd5e5ebdb617dba22031e41a3300fb5",
                 "shasum": ""
             },
             "require": {
@@ -1127,7 +1212,7 @@
                     "name": "symfony/contracts"
                 },
                 "branch-alias": {
-                    "dev-main": "3.7-dev"
+                    "dev-main": "3.8-dev"
                 }
             },
             "autoload": {
@@ -1163,7 +1248,7 @@
                 "standards"
             ],
             "support": {
-                "source": "https://github.com/symfony/service-contracts/tree/v3.7.3"
+                "source": "https://github.com/symfony/service-contracts/tree/v3.8.1"
             },
             "funding": [
                 {
@@ -1183,7 +1268,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-27T15:39:01+00:00"
+            "time": "2026-10-20T17:38:25+00:00"
         },
         {
             "name": "symfony/var-exporter",
@@ -1270,16 +1355,16 @@
         },
         {
             "name": "symfony/yaml",
-            "version": "v7.4.22",
+            "version": "v7.4.23",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/yaml.git",
-                "reference": "1ed6afa13d48c579c51cbf32e38f50686313497b"
+                "reference": "1e601207ffe627a2e621faa9d661f1d32dcf1cec"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/yaml/zipball/1ed6afa13d48c579c51cbf32e38f50686313497b",
-                "reference": "1ed6afa13d48c579c51cbf32e38f50686313497b",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/1e601207ffe627a2e621faa9d661f1d32dcf1cec",
+                "reference": "1e601207ffe627a2e621faa9d661f1d32dcf1cec",
                 "shasum": ""
             },
             "require": {
@@ -1322,7 +1407,7 @@
             "description": "Loads and dumps YAML files",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/yaml/tree/v7.4.22"
+                "source": "https://github.com/symfony/yaml/tree/v7.4.23"
             },
             "funding": [
                 {
@@ -1342,7 +1427,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-18T14:39:27+00:00"
+            "time": "2026-11-04T08:27:22+00:00"
         }
     ],
     "packages-dev": [],

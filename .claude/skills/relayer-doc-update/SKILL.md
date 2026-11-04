@@ -82,7 +82,7 @@ mise exec -- composer update polidog/relayer --with-dependencies
 ```
 
 `vA => vB` と新規 transitive 依存を確認。差分は `composer.json`/`composer.lock`
-のみ（`public/usephp.js` は post-update で再生成されるが不変なら status に出ない）。
+のみ（`public/rosanna-defer.js` は post-update で再生成されるが不変なら status に出ない）。
 コミット（末尾に `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`）→
 push → `gh pr create`。**自動マージしない**。ユーザーが「マージして」と言ったら
 `gh pr merge <n> --merge --delete-branch` → `git checkout main && git pull`。

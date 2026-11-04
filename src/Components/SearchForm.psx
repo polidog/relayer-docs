@@ -5,27 +5,15 @@ declare(strict_types=1);
 namespace App\Components;
 
 use App\I18n;
-use Polidog\UsePhp\Html\H;
-use Polidog\UsePhp\Storage\StorageType;
-
-use function Polidog\UsePhp\Runtime\fc;
+use Polidog\Rosanna\Html\H;
 
 /**
  * Search box. `query` pre-fills the field; `large` switches to the
  * results-page size; `locale` keeps the GET form on the locale's own
  * `/search` path so results stay in that language. Plain GET form
  * (works without JS). Square, hairline-ruled, palette-aware.
- *
- * Wrapped in fc(..., StorageType::Memory): this component holds no
- * state, but use-php's default StorageType::Session would construct a
- * SessionStorage (which calls session_start()) on every render. That
- * emits `Set-Cookie: PHPSESSID`, which makes Cloudflare BYPASS the
- * cache for every page this appears on (i.e. all of them). Memory
- * storage is session-free, so the read pages stay edge-cacheable
- * (App\PageCache s-maxage). No snapshot secret needed.
  */
-return fc(
-    function (array $props) {
+return function (array $props) {
         $locale = $props['locale'] ?? I18n::DEFAULT;
         $en = 'en' === $locale;
         $large = $props['large'] ?? false;
@@ -50,6 +38,4 @@ return fc(
             >{$en ? 'Find' : '検索'}</button>
         </form>
         );
-    },
-    storageType: StorageType::Memory,
-);
+};

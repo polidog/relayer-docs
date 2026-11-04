@@ -32,7 +32,7 @@
 	}
 	respond @hidden 403
 
-	# Front controller: serve real files (e.g. /usephp.js), route
+	# Front controller: serve real files (e.g. /rosanna-defer.js), route
 	# everything else to Relayer's single entrypoint (index.php).
 	# No `worker` directive → classic mode: one script execution per
 	# request, no state shared between requests, so PSX/Relayer needs

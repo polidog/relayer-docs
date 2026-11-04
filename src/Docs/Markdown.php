@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Docs;
 
-use Polidog\UsePhp\Html\H;
-use Polidog\UsePhp\Runtime\Element;
+use Polidog\Rosanna\Html\H;
+use Polidog\Rosanna\Runtime\Element;
 
 /**
- * A small, dependency-free Markdown renderer that emits a use-php
+ * A small, dependency-free Markdown renderer that emits a Rosanna
  * Element tree rather than an HTML string.
  *
- * Why a tree and not HTML: use-php escapes every text node when it
+ * Why a tree and not HTML: Rosanna escapes every text node when it
  * renders, so an HTML string would show up as literal `&lt;h1&gt;`.
  * Building H elements means the framework escapes the *text* (correct,
  * XSS-safe) while the structure stays real markup. We control the docs

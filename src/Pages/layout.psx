@@ -7,8 +7,8 @@ namespace App\Layouts;
 use App\I18n;
 use Polidog\Relayer\I18n\Translators;
 use Polidog\Relayer\Router\Layout\LayoutComponent;
-use Polidog\UsePhp\Html\H;
-use Polidog\UsePhp\Runtime\Element;
+use Polidog\Rosanna\Html\H;
+use Polidog\Rosanna\Runtime\Element;
 
 /**
  * Site chrome only — the header rule and the title-block footer, in the
@@ -99,7 +99,7 @@ final class RootLayout extends LayoutComponent
                         </div>
                         <div>
                             <div className={$field}>Drawn with</div>
-                            <div className="mt-1 text-sm">Relayer + usePHP</div>
+                            <div className="mt-1 text-sm">Relayer + Rosanna</div>
                         </div>
                         <div>
                             <div className={$field}>Content store</div>
