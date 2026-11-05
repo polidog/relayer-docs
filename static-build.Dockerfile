@@ -245,8 +245,19 @@ RUN set -eux; \
 #     -t relayer-doc-static -f static-build.Dockerfile .
 #
 # In GitHub Actions, pass the job's own ${{ github.token }} the same way.
+#
+# SPC_CMD_VAR_FRANKENPHP_XCADDY_MODULES pins the extra Caddy modules.
+# build-static.sh only sets its own default (the same three modules,
+# unversioned — i.e. @latest) when this is empty, so setting it here
+# replaces that default wholesale. Unpinned, the build is not
+# reproducible: mercure/caddy v1.1.6 and vulcain/caddy v1.4.6 (both
+# released 2026-11-04, requiring go 1.27.3 and caddy v2.11.8) made
+# xcaddy fail within seconds against FrankenPHP 1.12.7, while the same
+# Dockerfile had built fine an hour earlier on v1.1.5 / v1.4.5. Bump
+# these together with the static-builder image, not independently.
 RUN --mount=type=secret,id=github_token \
     GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    SPC_CMD_VAR_FRANKENPHP_XCADDY_MODULES="--with github.com/dunglas/mercure/caddy@v1.1.5 --with github.com/dunglas/vulcain/caddy@v1.4.5 --with github.com/dunglas/caddy-cbrotli@v1.0.1" \
     PHP_VERSION=8.5 \
     PHP_EXTENSIONS="ctype,curl,filter,gd,iconv,mbstring,opcache,openssl,pdo,pdo_sqlite,session,tokenizer,zlib" \
     PHP_EXTENSION_LIBS="libavif,nghttp2,nghttp3,ngtcp2,watcher,freetype,libjpeg,libwebp" \
